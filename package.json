@@ -1,0 +1,22 @@
+{
+  "name": "jarvis",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.6",
+    "better-sqlite3": "^13.0.3",
+    "croner": "^11.0.0",
+    "hono": "^4.13.17",
+    "zod": "^4.6.7"
+  }
+}

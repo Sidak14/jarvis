@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.jarvis.server</string>
+
+  <!-- Remove this key if you install it as a per-user LaunchAgent. -->
+  <key>UserName</key>
+  <string>mahendra</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/node</string>
+    <string>/Users/mahendra/jarvis/dist/server.js</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/mahendra/jarvis</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/mahendra/jarvis/logs/server.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/mahendra/jarvis/logs/server.err.log</string>
+</dict>
+</plist>
