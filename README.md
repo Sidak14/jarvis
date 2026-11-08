@@ -10,7 +10,7 @@ Personal assistant server: Hono + better-sqlite3 + croner + zod, TypeScript on N
   (status, duration, captured log). A failing job never crashes the server.
 - `src/jobs/` job definitions. `heartbeat` runs every 5 minutes.
 - `src/app.ts` routes. `src/server.ts` entry point, binds to `127.0.0.1:8080` only.
-- `launchd/` service plist, `cloudflared/` tunnel notes.
+- `launchd/` service plist.
 
 ## Setup
 
@@ -48,7 +48,29 @@ process (launchd relaunches it), or `sudo launchctl kickstart -k system/com.jarv
 Logs go to `logs/`. The Cloudflare tunnel runs separately as `com.cloudflare.cloudflared`
 and maps the public hostname to `http://127.0.0.1:8080`.
 
+## Spotify auto-like
+
+Likes any song played more than 4 times in 2 days (`src/spotify/settings.ts`).
+
+- `spotify-likes` job runs every 2 hours. Spotify only returns the last 50 plays, so each
+  run stores them in `play_history` (deduped by track id + played_at) and counts from there.
+- The rule, the thresholds and the cron schedule are all in `src/spotify/settings.ts`.
+- `GET /spotify`: status, **Run now** button with the job's output, and the recently played
+  songs with play counts and liked status. Works from this Mac and, behind Cloudflare Access,
+  from anywhere via the tunnel.
+- Setup: create an app at developer.spotify.com/dashboard (owner needs Premium), register a
+  redirect URI, put `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env`, restart, then
+  open `/spotify/login` from any device. The redirect URI defaults to
+  `https://<PUBLIC_HOST>/spotify/callback` (so `https://jarvis.gurveerkhalsa.com/spotify/callback`);
+  register exactly that in the Spotify dashboard. Set `SPOTIFY_REDIRECT_URI` to override it.
+- `SPOTIFY_DRY_RUN=true` (the default) only logs what it would like. Set `false` to go live.
+- Tokens live in `data/jarvis.db` (mode 600), refresh automatically, and are never logged.
+  Spotify refresh tokens last about 6 months; log in again when the dashboard asks.
+- Tests: `npm test` (fake Spotify, in-memory database, no real account needed).
+
 ## Notes
 
-`GET /` is public when the tunnel is up. Put it behind Cloudflare Access or add auth
-before showing anything sensitive on it.
+The dashboard (`GET /`) and `/spotify` are behind Cloudflare Access. `/health` and
+`/webhook/*` are the only public routes; the webhook needs the bearer secret. As a second
+check, tunnel requests to `/spotify` are only served if they arrive on `PUBLIC_HOST` and carry
+the `Cf-Access-Jwt-Assertion` header. That header is checked for presence only, not verified.

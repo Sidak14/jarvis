@@ -2,10 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { config } from "./config";
+import { createSpotifyTables } from "./spotify/schema";
 
 fs.mkdirSync(path.dirname(config.DB_PATH), { recursive: true });
 
 export const db = new Database(config.DB_PATH);
+fs.chmodSync(config.DB_PATH, 0o600); // the database holds Spotify tokens: owner only
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
@@ -38,6 +40,8 @@ db.exec(`
     PRIMARY KEY (provider, date)
   );
 `);
+
+createSpotifyTables(db);
 
 // A run still marked 'running' at startup was cut off by a crash or restart.
 db.prepare(

@@ -2,7 +2,9 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { config } from "./config";
 import { db } from "./db";
+import { esc } from "./html";
 import { triggerJob } from "./runner";
+import { spotifyRoutes } from "./spotify/routes";
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest();
 const secretHash = sha256(config.WEBHOOK_SECRET);
@@ -16,11 +18,6 @@ function isAuthorized(header: string | undefined): boolean {
   const ok = timingSafeEqual(supplied, secretHash);
   return ok && match !== null;
 }
-
-const esc = (v: unknown): string =>
-  String(v ?? "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
-  );
 
 interface JobRow {
   name: string;
@@ -56,6 +53,9 @@ app.use("*", async (c, next) => {
 });
 
 app.get("/health", (c) => c.json({ ok: true }));
+
+// Spotify dashboard, login and manual run. Local-only (see spotify/routes.ts).
+app.route("/spotify", spotifyRoutes);
 
 app.post("/webhook/:name", (c) => {
   if (!isAuthorized(c.req.header("Authorization"))) {
@@ -100,6 +100,7 @@ app.get("/", (c) => {
   .success{color:#1a7f37}.failure{color:#cf222e}.running{color:#9a6700}
 </style></head><body>
 <h1>Jarvis</h1>
+<p><a href="/spotify">Spotify dashboard</a></p>
 <h2>Jobs</h2>
 <table><tr><th>Name</th><th>Schedule</th><th>Enabled</th><th>Last run (UTC)</th><th>Last status</th><th>Next run (UTC)</th></tr>
 ${jobRows || '<tr><td colspan="6">No jobs registered</td></tr>'}</table>
