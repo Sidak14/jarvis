@@ -8,3 +8,4 @@ logs/
 *.log
 .DS_Store
 cloudflared/*.json
+secrets/

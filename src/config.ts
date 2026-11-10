@@ -28,6 +28,11 @@ const schema = z.object({
     .url()
     .refine((u) => new URL(u).pathname === "/spotify/callback", "must end with /spotify/callback")
     .optional(),
+  // Google Sheets for expenses. Optional: without them expenses are stored and the sync waits.
+  GOOGLE_SHEET_ID: z.string().min(1).optional(),
+  // Path to the service account's JSON key (outside git, chmod 600).
+  GOOGLE_SERVICE_ACCOUNT_FILE: z.string().min(1).optional().transform((v) => (v ? path.resolve(ROOT, v) : v)),
+  GOOGLE_SHEET_TAB: z.string().min(1).default("Sheet1"),
   // Safe by default: log what would be liked, but don't like anything.
   SPOTIFY_DRY_RUN: z
     .enum(["true", "false"])
@@ -57,5 +62,6 @@ export function redactedConfig(): Record<string, string | number | boolean | und
     WEBHOOK_SECRET: "***",
     SPOTIFY_CLIENT_ID: config.SPOTIFY_CLIENT_ID ? "***" : undefined,
     SPOTIFY_CLIENT_SECRET: config.SPOTIFY_CLIENT_SECRET ? "***" : undefined,
+    GOOGLE_SHEET_ID: config.GOOGLE_SHEET_ID ? "***" : undefined,
   };
 }

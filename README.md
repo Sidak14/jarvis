@@ -31,6 +31,10 @@ npm start
 
 The secret is compared in constant time. The auth check happens before the job lookup.
 
+`POST /webhook/expenses` is special: it has a handler that reads the JSON body (see Expenses
+below). A handler registered with `registerWebhook(name, fn)` in `src/webhooks.ts` wins over a
+job with the same name; every other name still just triggers the job.
+
 ## Adding a job
 
 ```ts
@@ -67,6 +71,36 @@ Likes any song played more than 4 times in 2 days (`src/spotify/settings.ts`).
 - Tokens live in `data/jarvis.db` (mode 600), refresh automatically, and are never logged.
   Spotify refresh tokens last about 6 months; log in again when the dashboard asks.
 - Tests: `npm test` (fake Spotify, in-memory database, no real account needed).
+
+## Expenses (wallet taps -> Google Sheet)
+
+An iOS Shortcut (Wallet transaction automation) POSTs each tap to Jarvis, which stores it and
+writes a row to a Google Sheet. The goal is never losing an expense, and making failures visible.
+
+- Shortcut: `POST https://jarvis.gurveerkhalsa.com/webhook/expenses` with headers
+  `Authorization: Bearer <WEBHOOK_SECRET>` and `Content-Type: application/json`, and a JSON body
+  with one field: `{"raw_data": <Shortcut Input>}`.
+- The webhook validates the body (zod: `raw_data` required, else 400), stores the expense in the
+  `expenses` table, and answers 202. It never waits on Google.
+- `src/expenses/parse.ts` reads merchant, amount (to integer cents), card, time and currency
+  (default AUD) out of `raw_data`. If it cannot, the expense is still stored as `unparsed`
+  (202), shown in red on the status page, and re-read on every sync after the parser is fixed.
+- Duplicates: the same merchant + amount + card within 2 minutes is stored as `duplicate`
+  and never synced.
+- `expenses-sync` job (every 15 minutes, and right after a new expense) appends rows to the
+  Sheet with a service account (columns Date, Merchant, Amount, Currency, Card, ID). An
+  expense is `synced` only after Google confirms. Failures stay `pending` and are retried
+  forever. Column F holds `jarvis-<id>`; before retrying an expense that may already have
+  reached Google, the sync looks for that id so nothing is written twice.
+- Each Google HTTP call is counted in `api_usage` (provider `google_sheets`).
+- The first 20 request bodies are logged in full to `logs/server.out.log` (to tune the parser).
+  Every body is also kept in `expenses.raw_payload`.
+- Without `GOOGLE_SHEET_ID` / `GOOGLE_SERVICE_ACCOUNT_FILE`, expenses are still stored and
+  the sync waits. The status page (`GET /`) shows the pending count, the last sync error,
+  anything stuck for over an hour, and the latest 20 expenses.
+- Setup: create a Google Cloud service account, enable the Sheets API, download its JSON key to
+  `secrets/google-sa.json` (`chmod 600`, `secrets/` is git-ignored), share the Sheet with the
+  service account's email as Editor, put the two values in `.env`, restart.
 
 ## Notes
 

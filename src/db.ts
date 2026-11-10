@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { config } from "./config";
+import { createExpenseTables } from "./expenses/schema";
 import { createSpotifyTables } from "./spotify/schema";
 
 fs.mkdirSync(path.dirname(config.DB_PATH), { recursive: true });
@@ -42,6 +43,7 @@ db.exec(`
 `);
 
 createSpotifyTables(db);
+createExpenseTables(db);
 
 // A run still marked 'running' at startup was cut off by a crash or restart.
 db.prepare(

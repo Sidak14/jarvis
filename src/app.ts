@@ -2,9 +2,11 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { config } from "./config";
 import { db } from "./db";
+import { expensesSection } from "./expenses/status";
 import { esc } from "./html";
 import { triggerJob } from "./runner";
 import { spotifyRoutes } from "./spotify/routes";
+import { getWebhook } from "./webhooks";
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest();
 const secretHash = sha256(config.WEBHOOK_SECRET);
@@ -57,11 +59,34 @@ app.get("/health", (c) => c.json({ ok: true }));
 // Spotify dashboard, login and manual run. Local-only (see spotify/routes.ts).
 app.route("/spotify", spotifyRoutes);
 
-app.post("/webhook/:name", (c) => {
+const MAX_BODY_BYTES = 64 * 1024;
+
+app.post("/webhook/:name", async (c) => {
   if (!isAuthorized(c.req.header("Authorization"))) {
     return c.json({ error: "unauthorized" }, 401);
   }
   const name = c.req.param("name");
+
+  // A webhook that wants the request body (e.g. expenses) takes precedence over a job of the same name.
+  const hook = getWebhook(name);
+  if (hook) {
+    const text = await c.req.text();
+    if (Buffer.byteLength(text) > MAX_BODY_BYTES) return c.json({ error: "body too large" }, 413);
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      return c.json({ error: "body must be JSON" }, 400);
+    }
+    try {
+      const result = await hook({ body, log: (m) => console.log(`[webhook:${name}] ${m}`) });
+      return c.json(result.body, result.status);
+    } catch (err) {
+      console.error(`[webhook:${name}] failed:`, (err as Error).message);
+      return c.json({ error: "internal error" }, 500);
+    }
+  }
+
   if (!triggerJob(name)) return c.json({ error: "unknown job" }, 404);
   return c.json({ ok: true, triggered: name }, 202);
 });
@@ -101,6 +126,7 @@ app.get("/", (c) => {
 </style></head><body>
 <h1>Jarvis</h1>
 <p><a href="/spotify">Spotify dashboard</a></p>
+${expensesSection(db)}
 <h2>Jobs</h2>
 <table><tr><th>Name</th><th>Schedule</th><th>Enabled</th><th>Last run (UTC)</th><th>Last status</th><th>Next run (UTC)</th></tr>
 ${jobRows || '<tr><td colspan="6">No jobs registered</td></tr>'}</table>
