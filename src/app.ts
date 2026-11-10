@@ -72,14 +72,15 @@ app.post("/webhook/:name", async (c) => {
   if (hook) {
     const text = await c.req.text();
     if (Buffer.byteLength(text) > MAX_BODY_BYTES) return c.json({ error: "body too large" }, 413);
+    // Not valid JSON is the handler's call: it may still want to keep the request.
     let body: unknown;
     try {
       body = JSON.parse(text);
     } catch {
-      return c.json({ error: "body must be JSON" }, 400);
+      body = undefined;
     }
     try {
-      const result = await hook({ body, log: (m) => console.log(`[webhook:${name}] ${m}`) });
+      const result = await hook({ body, rawText: text, log: (m) => console.log(`[webhook:${name}] ${m}`) });
       return c.json(result.body, result.status);
     } catch (err) {
       console.error(`[webhook:${name}] failed:`, (err as Error).message);

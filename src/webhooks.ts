@@ -1,8 +1,10 @@
 // Webhooks that need the request body. POST /webhook/:name looks here first, then
 // falls back to triggering the job with that name (see app.ts).
 export interface WebhookContext {
-  /** The parsed JSON body. Not trusted: validate it. */
+  /** The parsed JSON body, or undefined if the body was not valid JSON. Not trusted. */
   body: unknown;
+  /** The body exactly as received (text). */
+  rawText: string;
   log: (message: string) => void;
 }
 export interface WebhookResult {

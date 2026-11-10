@@ -24,7 +24,7 @@ export function reprocessUnparsed(db: Database.Database, log: (m: string) => voi
   for (const r of rows) {
     let raw: unknown;
     try {
-      raw = JSON.parse(r.raw_payload).raw_data;
+      raw = JSON.parse(r.raw_payload)?.raw_data;
     } catch {
       continue;
     }

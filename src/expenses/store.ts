@@ -43,15 +43,19 @@ export function findDuplicate(
   return row?.id;
 }
 
-/** Store one webhook body. This is the only thing the webhook waits for. */
-export function storeExpense(
-  db: Database.Database,
-  body: { raw_data: unknown },
-  now = new Date(),
-): StoreResult {
-  const rawPayload = JSON.stringify(body);
+/**
+ * Store one webhook request. This is the only thing the webhook waits for, and it keeps
+ * everything: a body we cannot read is stored as 'unparsed' instead of being rejected.
+ * `body` is whatever JSON arrived (or {"non_json_body": "..."} if it was not JSON).
+ */
+export function storeExpense(db: Database.Database, body: unknown, now = new Date()): StoreResult {
+  const rawPayload = JSON.stringify(body) ?? "null";
   const receivedAt = now.toISOString();
-  const parsed = parseRawData(body.raw_data, receivedAt);
+  const rawData =
+    body && typeof body === "object" && !Array.isArray(body)
+      ? (body as { raw_data?: unknown }).raw_data
+      : undefined;
+  const parsed = parseRawData(rawData, receivedAt);
 
   // One transaction, so the duplicate check and the insert cannot interleave.
   const run = db.transaction((): StoreResult => {

@@ -79,9 +79,11 @@ writes a row to a Google Sheet. The goal is never losing an expense, and making 
 
 - Shortcut: `POST https://jarvis.gurveerkhalsa.com/webhook/expenses` with headers
   `Authorization: Bearer <WEBHOOK_SECRET>` and `Content-Type: application/json`, and a JSON body
-  with one field: `{"raw_data": <Shortcut Input>}`.
-- The webhook validates the body (zod: `raw_data` required, else 400), stores the expense in the
-  `expenses` table, and answers 202. It never waits on Google.
+  with one field: `{"raw_data": <Shortcut Input>}`. (Found in testing: Wallet's Shortcut Input
+  arrived as an empty string here, so this will change to separate merchant/amount/card fields.)
+- The webhook stores whatever it receives in the `expenses` table and answers 202; it never
+  waits on Google. Only a wrong secret (401) or a body over 64 KB (413) is refused, so a broken
+  Shortcut cannot silently lose a tap.
 - `src/expenses/parse.ts` reads merchant, amount (to integer cents), card, time and currency
   (default AUD) out of `raw_data`. If it cannot, the expense is still stored as `unparsed`
   (202), shown in red on the status page, and re-read on every sync after the parser is fixed.

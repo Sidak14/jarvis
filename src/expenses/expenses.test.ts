@@ -115,21 +115,25 @@ describe("storeExpense", () => {
 });
 
 describe("webhook handler", () => {
-  it("returns 400 without raw_data, 202 with it, and starts a sync once", () => {
+  it("stores everything with 202, keeps unreadable bodies as unparsed, starts a sync once", () => {
     const db = newDb();
     let started = 0;
     const logs: string[] = [];
     const hook = createExpenseWebhook({ db, onStored: () => started++ });
-    const call = (body: unknown) => hook({ body, log: (m) => logs.push(m) }) as { status: number; body: Record<string, unknown> };
+    const call = (body: unknown, rawText = JSON.stringify(body)) =>
+      hook({ body, rawText, log: (m) => logs.push(m) }) as { status: number; body: Record<string, unknown> };
 
-    assert.equal(call({}).status, 400);
-    assert.equal(call([1]).status, 400);
-    assert.equal(call({ raw_data: "" }).status, 400);
-    assert.match(String((call({}).body.details as string[])[0]), /raw_data/);
-    assert.equal(call(tap()).status, 202);
-    assert.equal(call(tap()).status, 202); // duplicate: still 202
+    assert.equal(call({ raw_data: "" }).body.status, "unparsed"); // what the phone really sent
+    assert.equal(call({}).status, 202);
+    assert.equal(call([1]).status, 202);
+    assert.equal(call(undefined, "hello, not json").status, 202);
+    assert.equal(call(tap()).body.status, "stored");
+    assert.equal(call(tap()).body.status, "duplicate"); // still 202
     assert.equal(started, 1);
+    assert.deepEqual(statuses(db), ["unparsed", "unparsed", "unparsed", "unparsed", "pending", "duplicate"]);
     assert.ok(logs.some((l) => l.startsWith("raw body:")));
+    const rows = db.prepare(`SELECT raw_payload FROM expenses`).pluck().all();
+    assert.ok(rows.includes('{"non_json_body":"hello, not json"}'));
   });
 });
 
