@@ -7,8 +7,10 @@ import fs from "node:fs";
 export interface SheetsClient {
   /** Row number of the Sheet row whose column F equals `marker`, or null. */
   findRow(marker: string): Promise<number | null>;
-  /** Append one row (columns A-F). Returns the row number it landed on, if Google says. */
+  /** Append one row (columns A-G). Returns the row number it landed on, if Google says. */
   appendRow(values: (string | number)[]): Promise<number | null>;
+  /** Replace the merchant (column B) of an existing row. */
+  setMerchant(row: number, merchant: string): Promise<void>;
 }
 
 /** fatal = retrying right away will not help (bad auth, network down, Google erroring). */
@@ -38,6 +40,7 @@ const safeText = (v: string | number) => (typeof v === "string" && /^[=+\-@]/.te
 export class GoogleSheets implements SheetsClient {
   private key?: { client_email: string; private_key: string };
   private token?: { value: string; expiresAt: number };
+  private formatTried = false;
   private fetchFn: typeof fetch;
 
   constructor(private opts: GoogleSheetsOptions) {
@@ -100,7 +103,8 @@ export class GoogleSheets implements SheetsClient {
 
   private async sheetsCall(path: string, init: RequestInit = {}) {
     const token = await this.accessToken();
-    const { res, json } = await this.send(`${API}/${encodeURIComponent(this.opts.sheetId)}/${path}`, {
+    const base = `${API}/${encodeURIComponent(this.opts.sheetId)}`;
+    const { res, json } = await this.send(path.startsWith(":") ? `${base}${path}` : `${base}/${path}`, {
       ...init,
       headers: { ...init.headers, authorization: `Bearer ${token}` },
     });
@@ -123,9 +127,44 @@ export class GoogleSheets implements SheetsClient {
     return index === -1 ? null : index + 1;
   }
 
+  /**
+   * Make column A show date AND time (yyyy-mm-dd hh:mm:ss). A column formatted as a plain date would
+   * hide the time even though we write it. Done once per server run; it is cosmetic, so a failure
+   * is logged and never blocks writing an expense.
+   */
+  private async ensureDateTimeColumn(): Promise<void> {
+    if (this.formatTried) return;
+    this.formatTried = true;
+    try {
+      const meta = await this.sheetsCall(`?fields=sheets.properties(sheetId,title)`);
+      const tab = (meta.sheets as { properties?: { sheetId?: number; title?: string } }[] | undefined)?.find(
+        (t) => t.properties?.title === this.opts.tab,
+      );
+      if (tab?.properties?.sheetId === undefined) return;
+      await this.sheetsCall(":batchUpdate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          requests: [
+            {
+              repeatCell: {
+                range: { sheetId: tab.properties.sheetId, startRowIndex: 1, startColumnIndex: 0, endColumnIndex: 1 },
+                cell: { userEnteredFormat: { numberFormat: { type: "DATE_TIME", pattern: "yyyy-mm-dd hh:mm:ss" } } },
+                fields: "userEnteredFormat.numberFormat",
+              },
+            },
+          ],
+        }),
+      });
+    } catch (err) {
+      console.warn(`[expenses] could not set the Date column to date+time: ${(err as Error).message}`);
+    }
+  }
+
   async appendRow(values: (string | number)[]): Promise<number | null> {
+    await this.ensureDateTimeColumn();
     const json = await this.sheetsCall(
-      `values/${this.range("A:F")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+      `values/${this.range("A:G")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -134,5 +173,13 @@ export class GoogleSheets implements SheetsClient {
     );
     const m = /![A-Z]+(\d+)/.exec(String(json?.updates?.updatedRange ?? ""));
     return m ? Number(m[1]) : null;
+  }
+
+  async setMerchant(row: number, merchant: string): Promise<void> {
+    await this.sheetsCall(`values/${this.range(`B${row}`)}?valueInputOption=USER_ENTERED`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ values: [[safeText(merchant)]] }),
+    });
   }
 }

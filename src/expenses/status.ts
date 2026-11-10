@@ -11,6 +11,7 @@ interface Latest {
   card: string | null;
   sheet_status: string;
   attempts: number;
+  source: string;
 }
 
 const STUCK_AFTER_MS = 60 * 60 * 1000;
@@ -28,13 +29,13 @@ export function expensesSection(db: Database.Database, now = Date.now()): string
   const err = db
     .prepare(
       `SELECT last_error, last_attempt_at FROM expenses
-        WHERE last_error IS NOT NULL AND sheet_status IN ('pending','syncing')
+        WHERE last_error IS NOT NULL AND (sheet_status IN ('pending','syncing') OR merchant IS NOT merchant_synced)
         ORDER BY last_attempt_at DESC LIMIT 1`,
     )
     .get() as { last_error: string; last_attempt_at: string } | undefined;
   const latest = db
     .prepare(
-      `SELECT id, received_at, merchant, amount_cents, currency, card, sheet_status, attempts
+      `SELECT id, received_at, merchant, amount_cents, currency, card, sheet_status, attempts, source
          FROM expenses ORDER BY id DESC LIMIT 20`,
     )
     .all() as Latest[];
@@ -61,7 +62,7 @@ export function expensesSection(db: Database.Database, now = Date.now()): string
       const cls = e.sheet_status === "synced" ? "success" : e.sheet_status === "duplicate" ? "" : "failure";
       return `<tr><td>${e.id}</td><td>${esc(fmt(e.received_at))}</td><td>${esc(e.merchant ?? "(unreadable)")}</td>
         <td>${e.amount_cents === null ? "-" : `${(e.amount_cents / 100).toFixed(2)} ${esc(e.currency)}`}</td>
-        <td>${esc(e.card ?? "-")}</td><td class="${cls}">${esc(e.sheet_status)}</td><td>${e.attempts}</td></tr>`;
+        <td>${esc(e.card ?? "-")}</td><td>${esc(e.source)}</td><td class="${cls}">${esc(e.sheet_status)}</td><td>${e.attempts}</td></tr>`;
     })
     .join("");
 
@@ -69,6 +70,6 @@ export function expensesSection(db: Database.Database, now = Date.now()): string
 <p>Pending (not in the Sheet yet): <strong class="${pending ? "failure" : "success"}">${pending}</strong>
  · Unreadable: <strong class="${unparsed ? "failure" : "success"}">${unparsed}</strong></p>
 ${notes.join("\n")}
-<table><tr><th>#</th><th>Received</th><th>Merchant</th><th>Amount</th><th>Card</th><th>Sheet</th><th>Tries</th></tr>
-${rows || '<tr><td colspan="7">No expenses yet</td></tr>'}</table>`;
+<table><tr><th>#</th><th>Received</th><th>Merchant</th><th>Amount</th><th>Card</th><th>Source</th><th>Sheet</th><th>Tries</th></tr>
+${rows || '<tr><td colspan="8">No expenses yet</td></tr>'}</table>`;
 }

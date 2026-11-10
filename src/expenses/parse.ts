@@ -4,6 +4,8 @@
 // If it cannot find a merchant and an amount, it returns null and the expense is stored as
 // "unparsed" (never dropped). Fix this file, and unparsed rows are re-read on the next sync.
 
+import { resolveTimestamp } from "../datetime";
+
 export interface ParsedExpense {
   merchant: string;
   amount_cents: number;
@@ -87,8 +89,8 @@ export function parseRawData(raw: unknown, receivedAt: string): ParsedExpense | 
   const card = pick(pairs, ["cardorpass", "card", "cardname", "passname", "pass", "account"]);
 
   const when = pick(pairs, ["timestamp", "datetime", "transactiondate", "date", "time"]);
-  const parsedTime = when === undefined ? NaN : Date.parse(String(when));
-  const occurred_at = Number.isNaN(parsedTime) ? receivedAt : new Date(parsedTime).toISOString();
+  // A full datetime. A bare date (or no usable date) becomes the moment the tap reached us.
+  const occurred_at = resolveTimestamp(when === undefined ? null : String(when), receivedAt) ?? receivedAt;
 
   return {
     merchant: String(merchant).trim().slice(0, 200),

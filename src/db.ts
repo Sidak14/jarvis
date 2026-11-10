@@ -2,13 +2,15 @@ import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { config } from "./config";
+import { addColumnIfMissing } from "./sqlite";
+import { createGmailTables } from "./gmail/schema";
 import { createExpenseTables } from "./expenses/schema";
 import { createSpotifyTables } from "./spotify/schema";
 
 fs.mkdirSync(path.dirname(config.DB_PATH), { recursive: true });
 
 export const db = new Database(config.DB_PATH);
-fs.chmodSync(config.DB_PATH, 0o600); // the database holds Spotify tokens: owner only
+fs.chmodSync(config.DB_PATH, 0o600); // the database holds Spotify/Gmail tokens: owner only
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
@@ -42,8 +44,14 @@ db.exec(`
   );
 `);
 
+// LLM calls also record tokens and estimated cost in api_usage.
+addColumnIfMissing(db, "api_usage", "input_tokens", "INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing(db, "api_usage", "output_tokens", "INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing(db, "api_usage", "cost_usd", "REAL NOT NULL DEFAULT 0");
+
 createSpotifyTables(db);
 createExpenseTables(db);
+createGmailTables(db);
 
 // A run still marked 'running' at startup was cut off by a crash or restart.
 db.prepare(

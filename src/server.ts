@@ -3,6 +3,7 @@ import { HOST, config, redactedConfig } from "./config";
 import { app } from "./app";
 import { closeDb } from "./db";
 import { registerExpenses } from "./jobs/expenses";
+import { registerGmailExpenses } from "./jobs/gmail-expenses";
 import { registerHeartbeat } from "./jobs/heartbeat";
 import { registerSpotifyLikes } from "./jobs/spotify-likes";
 import { stopAllJobs } from "./runner";
@@ -12,6 +13,7 @@ console.log("[jarvis] config:", JSON.stringify(redactedConfig()));
 registerHeartbeat();
 registerSpotifyLikes();
 registerExpenses();
+registerGmailExpenses();
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port: config.PORT }, (info) => {
   console.log(`[jarvis] listening on http://${info.address}:${info.port}`);

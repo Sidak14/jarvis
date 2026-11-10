@@ -104,6 +104,45 @@ writes a row to a Google Sheet. The goal is never losing an expense, and making 
   `secrets/google-sa.json` (`chmod 600`, `secrets/` is git-ignored), share the Sheet with the
   service account's email as Editor, put the two values in `.env`, restart.
 
+## Expenses from invoice emails (Gmail)
+
+Every hour the `gmail-expenses` job reads new Gmail and adds payment receipts to the same
+`expenses` table as the Wallet taps. Code is in `src/gmail/`, `src/ai/` and `src/expenses/`.
+
+- **Gmail:** read-only (`gmail.readonly`) OAuth. Tokens live in `data/jarvis.db` (`gmail_auth`,
+  mode 600). Log in at `/gmail/login`. If the Google OAuth app is in "Testing", Google expires
+  the refresh token after 7 days; the page then asks you to log in again.
+- **Cheap filter first:** a broad Gmail search (last 7 days; receipt, invoice, bill, expense, payment,
+  paid, order, charge, subscription, booking ... in the subject or body; only social/forums left out, so
+  receipts that land in Promotions are still read), skipping ids in `processed_emails`, then a code check (needs an
+  amount, no promo subject). Only what is left goes to the LLM.
+- **LLM:** Vercel AI Gateway, `anthropic/claude-haiku-5.5` (`src/ai/settings.ts`). The email is
+  sent as data inside `<email>` tags and the model only fills a zod schema
+  (`is_invoice, merchant, amount, currency, occurred_at, confidence`). Code then sanity-checks
+  amount, currency and date and decides what happens. Nothing the email says can trigger an action.
+- **Caps:** 100 LLM calls/day and $10/month (estimated from tokens), enforced in `src/ai/llm.ts`.
+  Every call is in `api_usage` (provider `ai_gateway`: calls, tokens, estimated cost). When a cap is
+  hit the run fails and the status page says so.
+- **Dedupe (`src/expenses/match.ts`, one function for both directions):** same `amount_cents` +
+  currency within 48 hours and a different source = same purchase. A tap arriving after an email
+  (or the reverse) is merged, not added; the better merchant name is kept (a messy terminal string
+  like `SQ *CAFE 1234` is replaced by the email's clean name, and just that Sheet cell is updated).
+  Each expense is matched once, so two real purchases of one amount on different days stay two rows.
+  Same-source repeats keep the 2-minute rule. `email_message_id` is unique.
+- **Sheet:** column A is a full date and time (`yyyy-mm-dd hh:mm:ss`; Jarvis sets that column format
+  once per run). A tap uses the moment the webhook was called unless Wallet sends its own time.
+  An email uses the time the model finds, or the time the email arrived when it only names a date.
+  Column G is `Source` (`tap` or `email`); add the header yourself.
+- **Invoice + receipt:** a paid invoice and its receipt email for the same merchant and amount (within
+  7 days) count as one expense; two receipts are two purchases unless their timestamps match.
+- **Dry run first:** with `GMAIL_DRY_RUN=true` (default) it only logs `WOULD add ...` /
+  `WOULD merge into ...` (see `/gmail`) and writes no expenses. Set `false` and restart to go live;
+  emails seen in dry-run are then processed for real.
+- **Privacy:** email text is held in memory only. We store the message id, what we decided, and
+  the extracted fields. The email text is sent to the AI Gateway (and the model provider) to be read.
+- `/gmail` shows connection, last run, spend, the run output with a **Run now** button, and the
+  latest processed emails.
+
 ## Notes
 
 The dashboard (`GET /`) and `/spotify` are behind Cloudflare Access. `/health` and

@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import { parseRawData } from "./parse";
 import { SheetsError, type SheetsClient } from "./sheets";
+import { findCrossSourceMatch, markMerged } from "./match";
 import { findDuplicate } from "./store";
 
 interface Row {
@@ -11,6 +12,7 @@ interface Row {
   card: string;
   occurred_at: string;
   attempts: number;
+  source: string;
 }
 
 /** Column F of the Sheet holds this, so we can tell if an expense is already there. */
@@ -30,7 +32,10 @@ export function reprocessUnparsed(db: Database.Database, log: (m: string) => voi
     }
     const e = parseRawData(raw, r.received_at);
     if (!e) continue;
-    const dup = findDuplicate(db, e, r.raw_payload, r.received_at, r.id);
+    const sameSource = findDuplicate(db, e, r.raw_payload, r.received_at, r.id);
+    const emailMatch = sameSource ? undefined : findCrossSourceMatch(db, e, "tap"); // already recorded from an email
+    if (emailMatch) markMerged(db, emailMatch.id, r.received_at);
+    const dup = sameSource ?? emailMatch?.id;
     db.prepare(
       `UPDATE expenses SET merchant=?, amount_cents=?, currency=?, card=?, occurred_at=?,
               parse_status='ok', sheet_status=?, duplicate_of=? WHERE id=?`,
@@ -62,7 +67,7 @@ export async function syncExpenses(opts: {
   }
 
   const next = db.prepare(
-    `SELECT id, merchant, amount_cents, currency, card, occurred_at, attempts FROM expenses
+    `SELECT id, merchant, amount_cents, currency, card, occurred_at, attempts, source FROM expenses
       WHERE sheet_status IN ('pending','syncing') AND id > ? ORDER BY id LIMIT 1`,
   );
   const failures: string[] = [];
@@ -87,12 +92,13 @@ export async function syncExpenses(opts: {
           row.currency,
           row.card,
           sheetMarker(row.id),
+          row.source, // column G: "tap" or "email"
         ]);
         log(`expense #${row.id} written to the Sheet${sheetRow ? ` (row ${sheetRow})` : ""}`);
       }
       db.prepare(
-        `UPDATE expenses SET sheet_status='synced', sheet_row=?, last_error=NULL WHERE id=?`,
-      ).run(sheetRow, row.id);
+        `UPDATE expenses SET sheet_status='synced', sheet_row=?, last_error=NULL, merchant_synced=? WHERE id=?`,
+      ).run(sheetRow, row.merchant, row.id);
       synced++;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -104,6 +110,42 @@ export async function syncExpenses(opts: {
     }
   }
 
+  // A merged expense can get a better merchant name after it was already written. Push just that cell.
+  if (!failures.length) await updateImprovedMerchants(db, sheets, log, failures);
+
   log(`synced ${synced}, failed ${failures.length}`);
   if (failures.length) throw new Error(`could not write ${failures.join(", ")} to the Sheet (see log above)`);
+}
+
+/** Rows already in the Sheet whose merchant in the database is now different (a better name from an email). */
+async function updateImprovedMerchants(
+  db: Database.Database,
+  sheets: SheetsClient,
+  log: (m: string) => void,
+  failures: string[],
+): Promise<void> {
+  const rows = db
+    .prepare(
+      `SELECT id, merchant FROM expenses WHERE sheet_status = 'synced' AND merchant IS NOT merchant_synced ORDER BY id`,
+    )
+    .all() as { id: number; merchant: string }[];
+  for (const r of rows) {
+    try {
+      // Look the row up by its id marker: the user may have sorted or deleted rows since.
+      const sheetRow = await sheets.findRow(sheetMarker(r.id));
+      if (sheetRow === null) {
+        log(`expense #${r.id} is no longer in the Sheet, not updating its merchant`);
+      } else {
+        await sheets.setMerchant(sheetRow, r.merchant);
+        log(`expense #${r.id} merchant updated in the Sheet (row ${sheetRow}): ${r.merchant}`);
+      }
+      db.prepare(`UPDATE expenses SET merchant_synced = ?, last_error = NULL WHERE id = ?`).run(r.merchant, r.id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      db.prepare(`UPDATE expenses SET last_error = ?, last_attempt_at = ? WHERE id = ?`).run(message, new Date().toISOString(), r.id);
+      log(`expense #${r.id} merchant update FAILED, will retry: ${message}`);
+      failures.push(`#${r.id} (merchant)`);
+      if (!(err instanceof SheetsError) || err.fatal) break;
+    }
+  }
 }

@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { Hono, type Context, type MiddlewareHandler } from "hono";
+import { Hono } from "hono";
+import { dashboardAccess } from "../access";
 import { config } from "../config";
 import { db } from "../db";
 import { esc, layout } from "../html";
@@ -9,31 +10,6 @@ import { JOB_NAME, PLAY_THRESHOLD, POLL_CRON, WINDOW_DAYS } from "./settings";
 import { apiCallsToday } from "./usage";
 
 export const spotifyRoutes = new Hono();
-
-// ---- Who can reach what ----------------------------------------------------
-// These pages show my listening history and can change my library. Every route here
-// is served to this Mac, or through the Cloudflare tunnel. The tunnel is protected by
-// Cloudflare Access, which logs me in before a request reaches Jarvis. As a second check
-// we only serve tunnel requests that arrive on our own hostname and carry the Access header.
-// (If SPOTIFY_REDIRECT_URI is the 127.0.0.1 one, logging in only works on this Mac,
-// because Spotify sends the browser back to 127.0.0.1.)
-const LOCAL_HOSTS = [`127.0.0.1:${config.PORT}`, `localhost:${config.PORT}`];
-
-function isLocalRequest(c: Context): boolean {
-  const viaCloudflare = c.req.header("cf-connecting-ip") || c.req.header("cf-ray");
-  return LOCAL_HOSTS.includes(c.req.header("host") ?? "") && !viaCloudflare;
-}
-
-function isAccessTunnelRequest(c: Context): boolean {
-  return (
-    c.req.header("host") === config.PUBLIC_HOST && Boolean(c.req.header("cf-access-jwt-assertion"))
-  );
-}
-
-const dashboardAccess: MiddlewareHandler = async (c, next) => {
-  if (!isLocalRequest(c) && !isAccessTunnelRequest(c)) return c.text("Forbidden", 403);
-  await next();
-};
 
 // ---- Login -----------------------------------------------------------------
 const pendingStates = new Map<string, number>(); // state -> expiry (ms)

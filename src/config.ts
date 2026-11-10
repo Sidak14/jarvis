@@ -28,6 +28,23 @@ const schema = z.object({
     .url()
     .refine((u) => new URL(u).pathname === "/spotify/callback", "must end with /spotify/callback")
     .optional(),
+  // Gmail (read-only) for expenses from invoice emails. Optional until set up.
+  GMAIL_CLIENT_ID: z.string().min(1).optional(),
+  GMAIL_CLIENT_SECRET: z.string().min(1).optional(),
+  // Where Google sends the browser after login; must be registered in Google Cloud exactly.
+  // Default: https://<PUBLIC_HOST>/gmail/callback
+  GMAIL_REDIRECT_URI: z
+    .url()
+    .refine((u) => new URL(u).pathname === "/gmail/callback", "must end with /gmail/callback")
+    .optional(),
+  // Safe by default: log what would be added, write no expenses.
+  GMAIL_DRY_RUN: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  // Vercel AI Gateway key, used to read invoice emails with an LLM.
+  AI_GATEWAY_API_KEY: z.string().min(1).optional(),
+
   // Google Sheets for expenses. Optional: without them expenses are stored and the sync waits.
   GOOGLE_SHEET_ID: z.string().min(1).optional(),
   // Path to the service account's JSON key (outside git, chmod 600).
@@ -53,6 +70,8 @@ export const config = {
   ...parsed.data,
   SPOTIFY_REDIRECT_URI:
     parsed.data.SPOTIFY_REDIRECT_URI ?? `https://${parsed.data.PUBLIC_HOST}/spotify/callback`,
+  GMAIL_REDIRECT_URI:
+    parsed.data.GMAIL_REDIRECT_URI ?? `https://${parsed.data.PUBLIC_HOST}/gmail/callback`,
 };
 
 /** Safe-to-log view of the config: secrets are masked. */
@@ -63,5 +82,8 @@ export function redactedConfig(): Record<string, string | number | boolean | und
     SPOTIFY_CLIENT_ID: config.SPOTIFY_CLIENT_ID ? "***" : undefined,
     SPOTIFY_CLIENT_SECRET: config.SPOTIFY_CLIENT_SECRET ? "***" : undefined,
     GOOGLE_SHEET_ID: config.GOOGLE_SHEET_ID ? "***" : undefined,
+    GMAIL_CLIENT_ID: config.GMAIL_CLIENT_ID ? "***" : undefined,
+    GMAIL_CLIENT_SECRET: config.GMAIL_CLIENT_SECRET ? "***" : undefined,
+    AI_GATEWAY_API_KEY: config.AI_GATEWAY_API_KEY ? "***" : undefined,
   };
 }

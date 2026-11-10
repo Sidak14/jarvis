@@ -30,6 +30,7 @@ const statuses = (db: Database.Database) =>
 function fakeSheets() {
   const rows: (string | number)[][] = [];
   const state = { failNext: 0, failAfterWrite: 0, findCalls: 0 };
+  const merchantUpdates: [number, string][] = [];
   const client: SheetsClient = {
     findRow: async (marker) => {
       state.findCalls++;
@@ -48,8 +49,11 @@ function fakeSheets() {
       }
       return rows.length + 1;
     },
+    setMerchant: async (row, merchant) => {
+      merchantUpdates.push([row, merchant]);
+    },
   };
-  return { client, rows, state };
+  return { client, rows, state, merchantUpdates };
 }
 
 describe("parse", () => {
@@ -152,7 +156,7 @@ describe("syncExpenses", () => {
     await syncExpenses({ db, sheets: sheets.client, log });
     assert.deepEqual(statuses(db), ["synced"]);
     assert.equal(sheets.rows.length, 1);
-    assert.deepEqual(sheets.rows[0].slice(1), ["Cafe", 12.5, "AUD", "Visa", "jarvis-1"]);
+    assert.deepEqual(sheets.rows[0].slice(1), ["Cafe", 12.5, "AUD", "Visa", "jarvis-1", "tap"]);
     await syncExpenses({ db, sheets: sheets.client, log });
     assert.equal(sheets.rows.length, 1, "synced rows are never written again");
   });
@@ -264,10 +268,30 @@ describe("GoogleSheets", () => {
     assert.equal(row, 7);
     assert.equal(auth, "Bearer TOKEN");
     assert.equal(JSON.parse(body).values[0][1], "'=HYPERLINK(1)");
-    assert.match(calls[1], /My%20Tab.*:append\?valueInputOption=USER_ENTERED/);
-    assert.equal(count(), 2);
+    assert.match(calls.find((u) => u.includes(":append")) ?? "", /My%20Tab.*:append\?valueInputOption=USER_ENTERED/);
+    assert.equal(count(), 3, "token + column format lookup + append");
     await sheets.appendRow(["d", "m", 1, "AUD", "c", "jarvis-2"]);
     assert.equal(calls.filter((u) => u.includes("oauth2")).length, 1, "token is cached");
+  });
+  it("sets column A to date+time once, and still writes if that fails", async () => {
+    const calls: { url: string; body: string }[] = [];
+    const { sheets } = make((url, init) => {
+      calls.push({ url, body: String(init.body ?? "") });
+      if (url.includes("oauth2")) return tokenOk;
+      if (url.includes("fields=sheets.properties")) return { json: { sheets: [{ properties: { sheetId: 7, title: "My Tab" } }] } };
+      return { json: { updates: { updatedRange: "'My Tab'!A9:G9" } } };
+    });
+    assert.equal(await sheets.appendRow(["d", "m", 1, "AUD", "c", "jarvis-1", "tap"]), 9);
+    await sheets.appendRow(["d", "m", 1, "AUD", "c", "jarvis-2", "email"]);
+    const batch = calls.filter((c) => c.url.endsWith(":batchUpdate"));
+    assert.equal(batch.length, 1, "formatted once");
+    const req = JSON.parse(batch[0].body).requests[0].repeatCell;
+    assert.equal(req.range.sheetId, 7);
+    assert.equal(req.cell.userEnteredFormat.numberFormat.type, "DATE_TIME");
+    assert.match(req.cell.userEnteredFormat.numberFormat.pattern, /hh:mm:ss/);
+
+    const failing = make((url) => (url.includes("oauth2") ? tokenOk : url.includes("fields=sheets") ? { status: 403, json: { error: { message: "no" } } } : { json: { updates: { updatedRange: "Sheet1!A2:G2" } } }));
+    assert.equal(await failing.sheets.appendRow(["d", "m", 1, "AUD", "c", "x", "tap"]), 2, "a cosmetic failure never blocks the write");
   });
   it("finds a row by marker in column F", async () => {
     const { sheets } = make((url) =>
