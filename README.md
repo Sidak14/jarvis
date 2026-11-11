@@ -143,6 +143,61 @@ Every hour the `gmail-expenses` job reads new Gmail and adds payment receipts to
 - `/gmail` shows connection, last run, spend, the run output with a **Run now** button, and the
   latest processed emails.
 
+## Telegram (the chat interface)
+
+Jarvis talks to you on Telegram. No LLM: every reply is deterministic code. Code is in `src/telegram/`.
+
+- **Long polling** (`getUpdates`) inside the main service, so nothing new is exposed through the
+  tunnel. **Locked to one person:** updates from anyone but `TELEGRAM_OWNER_ID` (or from outside
+  your private chat with the bot) are dropped silently. With no owner id set, `/start` replies with
+  the sender's id once, and nothing else works.
+- **Messages are data.** The only things that do anything: the fixed commands `/status /spend
+  /unlabeled /recent /log /help /start`, `/recat <id> <number>` (changes a category, strict pattern), and a
+  reply to a question (a number, or text stored as data: cleaned, max 200 chars). There are no
+  buttons (some chat apps do not show them). No shell, no eval. Messages over 500 chars are
+  refused, and more than 20 a minute are ignored. All outgoing text is plain text (no Markdown/HTML).
+- **Outbox:** `notify(text, options)` (from `src/telegram`) writes to the `outbox` table FIRST, then
+  tries to send. The `telegram-outbox` job (every minute) retries failures with backoff (1, 2, 4, 8,
+  15, 30, 60 min), in order, and gives up after 50 attempts (`failed`, shown on the status page).
+  Alerts pass `dedupeKey` + `cooldownMs` so a stuck problem does not spam. Delivery is at-least-once.
+- **Categorising** (`expenses-categorise`, **off until `TELEGRAM_QUESTIONS_ENABLED=true`**): the
+  webhook and Gmail jobs start it the moment an expense is saved; a 9pm Sydney run is the safety net.
+  For each uncategorised expense: (1) if that merchant's last 5 categories all agree, reuse it (no AI);
+  (2) otherwise ask the AI, showing it the merchant's last 5 categories and everything logged in the
+  previous 12 hours. It answers a typed JSON (`{category, confidence, reason}`, checked with zod, one
+  retry); only "high" confidence and not "Other" is saved (`category_source = ai`); (3) otherwise
+  you get a message straight away (no daily limit):
+  `$12.50 at Cafe, 2:14pm. What was this for?` then `1. Food and drinks ... 6. Other, 7. Skip`.
+  Reply to it with a number; anything else is saved as Other with your words as the note. Skip means
+  never ask again. `asked_at` is set as the question is queued, so an expense is asked about once, ever.
+  AI errors are retried (3 times), a hit AI cap or missing AI key means asking you. Expenses older
+  than 2 days are never asked about. Merged tap/email rows are one expense row, so they count once.
+  Messages that can wait (questions, alerts) are held while it is before 9am or after 11pm in Sydney.
+  `/log yesterday 45 at Star Casino` adds an expense by hand: the AI reads the day ("2 days ago",
+  "last monday"), amount, optional time (default 12:00pm) and merchant ("to friends" -> Friends) into a
+  typed object; code checks it (real date, not future, amount sane) and saves it as source `manual`,
+  then it is synced and categorised like any other. It replies with what it saved.
+  `/recent` shows the last 10 with who chose each category; `/recat <id> <number>` fixes one.
+- **Sheet:** columns H `Category` and I `Purpose` (add the headers). Answers are pushed to the
+  existing row by the normal sync (retried until it works).
+- **Monthly recap** (`telegram-recap`, 9am Sydney, sent once per month for the month just ended; it
+  catches up for 3 days if the Mac was off on the 1st): total (AUD), count, by category, top 5
+  merchants, change vs the month before, and how many are unlabeled. `monthly_recaps` has the month
+  as its primary key, so a month is never sent twice.
+- **Alerts** (`health-alerts`, every 10 min, each with a cooldown): sheet rows pending over 1 hour or
+  an error repeating, Gmail login failures, a login/consent ending within 14 days (`consents` table;
+  set `GMAIL_CONSENT_DAYS=7` while the Google app is in "Testing"), AI spend at 80% or the cap, and any
+  job failing 3 runs in a row (`jobs.consecutive_failures`).
+  **Jarvis cannot alert when the Mac mini itself is down** (see below).
+- **Quiet jobs:** `registerJob(..., { quiet: true })` does not record a successful run that logged
+  nothing, so a per-minute job does not bury the run history. `{ timezone }` sets a cron time zone.
+- **Setup:** create the bot with BotFather, put `TELEGRAM_BOT_TOKEN` in `.env`, restart, message the
+  bot `/start`, put the id it replies with in `TELEGRAM_OWNER_ID`, restart (a test message arrives),
+  then set `TELEGRAM_QUESTIONS_ENABLED=true` and restart.
+- **Dead-man's switch (not built):** the cheapest way to hear about the Mac being down is an outside
+  service that expects a ping, such as a free Healthchecks.io check: the `heartbeat` job would request
+  its ping URL every 5 minutes, and Healthchecks emails or texts you when the pings stop.
+
 ## Notes
 
 The dashboard (`GET /`) and `/spotify` are behind Cloudflare Access. `/health` and

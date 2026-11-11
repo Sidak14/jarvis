@@ -228,6 +228,7 @@ describe("merchant names", () => {
         setMerchant: async (row, m) => {
           updates.push([row, m]);
         },
+        setLabels: async () => {},
       };
       return { client, rows, updates };
     };

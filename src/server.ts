@@ -4,6 +4,7 @@ import { app } from "./app";
 import { closeDb } from "./db";
 import { registerExpenses } from "./jobs/expenses";
 import { registerGmailExpenses } from "./jobs/gmail-expenses";
+import { registerTelegram, startTelegramBot } from "./jobs/telegram";
 import { registerHeartbeat } from "./jobs/heartbeat";
 import { registerSpotifyLikes } from "./jobs/spotify-likes";
 import { stopAllJobs } from "./runner";
@@ -14,6 +15,9 @@ registerHeartbeat();
 registerSpotifyLikes();
 registerExpenses();
 registerGmailExpenses();
+registerTelegram();
+
+const stopBot = startTelegramBot();
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port: config.PORT }, (info) => {
   console.log(`[jarvis] listening on http://${info.address}:${info.port}`);
@@ -29,6 +33,7 @@ function shutdown(signal: string): void {
   stopping = true;
   console.log(`[jarvis] ${signal} received, shutting down`);
   stopAllJobs();
+  stopBot();
   const force = setTimeout(() => process.exit(0), 3000);
   force.unref();
   server.close(() => {

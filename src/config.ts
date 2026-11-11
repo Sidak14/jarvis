@@ -45,6 +45,19 @@ const schema = z.object({
   // Vercel AI Gateway key, used to read invoice emails with an LLM.
   AI_GATEWAY_API_KEY: z.string().min(1).optional(),
 
+  // Telegram bot (chat interface). Optional: without both, messages wait in the outbox.
+  TELEGRAM_BOT_TOKEN: z.string().min(20).optional(),
+  // Only this Telegram user is ever answered. Unset: /start replies with your id once.
+  TELEGRAM_OWNER_ID: z.coerce.number().int().positive().optional(),
+  // Off until you have received the test message and say so.
+  TELEGRAM_QUESTIONS_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  // Set to 7 while the Google OAuth app is in "Testing" (Google expires the login then), so an
+  // alert warns before it does. Leave unset once the app is in production.
+  GMAIL_CONSENT_DAYS: z.coerce.number().int().positive().optional(),
+
   // Google Sheets for expenses. Optional: without them expenses are stored and the sync waits.
   GOOGLE_SHEET_ID: z.string().min(1).optional(),
   // Path to the service account's JSON key (outside git, chmod 600).
@@ -85,5 +98,7 @@ export function redactedConfig(): Record<string, string | number | boolean | und
     GMAIL_CLIENT_ID: config.GMAIL_CLIENT_ID ? "***" : undefined,
     GMAIL_CLIENT_SECRET: config.GMAIL_CLIENT_SECRET ? "***" : undefined,
     AI_GATEWAY_API_KEY: config.AI_GATEWAY_API_KEY ? "***" : undefined,
+    TELEGRAM_BOT_TOKEN: config.TELEGRAM_BOT_TOKEN ? "***" : undefined,
+    TELEGRAM_OWNER_ID: config.TELEGRAM_OWNER_ID ? "***" : undefined,
   };
 }

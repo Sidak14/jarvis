@@ -3,6 +3,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { config } from "./config";
 import { addColumnIfMissing } from "./sqlite";
+import { createTelegramTables } from "./telegram/schema";
 import { createGmailTables } from "./gmail/schema";
 import { createExpenseTables } from "./expenses/schema";
 import { createSpotifyTables } from "./spotify/schema";
@@ -44,6 +45,9 @@ db.exec(`
   );
 `);
 
+// How many runs of a job failed in a row (alerts read this).
+addColumnIfMissing(db, "jobs", "consecutive_failures", "INTEGER NOT NULL DEFAULT 0");
+
 // LLM calls also record tokens and estimated cost in api_usage.
 addColumnIfMissing(db, "api_usage", "input_tokens", "INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing(db, "api_usage", "output_tokens", "INTEGER NOT NULL DEFAULT 0");
@@ -52,6 +56,7 @@ addColumnIfMissing(db, "api_usage", "cost_usd", "REAL NOT NULL DEFAULT 0");
 createSpotifyTables(db);
 createExpenseTables(db);
 createGmailTables(db);
+createTelegramTables(db);
 
 // A run still marked 'running' at startup was cut off by a crash or restart.
 db.prepare(

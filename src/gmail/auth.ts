@@ -36,6 +36,8 @@ export class GmailAuth {
     private clientSecret: string,
     private redirectUri: string, // must match one registered in Google Cloud exactly
     private fetchFn: typeof fetch = fetch,
+    /** If set, a login is recorded in `consents` as ending this many days later (so an alert can warn). */
+    private consentDays?: number,
   ) {}
 
   loginUrl(): string {
@@ -68,6 +70,11 @@ export class GmailAuth {
       redirect_uri: this.redirectUri,
     });
     this.save(body, null);
+    if (this.consentDays) {
+      this.db
+        .prepare(`INSERT INTO consents (name, expires_at) VALUES ('gmail', ?) ON CONFLICT(name) DO UPDATE SET expires_at = excluded.expires_at`)
+        .run(new Date(Date.now() + this.consentDays * 86_400_000).toISOString());
+    }
   }
 
   async getAccessToken(forceRefresh = false): Promise<string> {

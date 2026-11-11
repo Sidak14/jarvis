@@ -52,6 +52,7 @@ function fakeSheets() {
     setMerchant: async (row, merchant) => {
       merchantUpdates.push([row, merchant]);
     },
+    setLabels: async () => {},
   };
   return { client, rows, state, merchantUpdates };
 }
@@ -156,7 +157,7 @@ describe("syncExpenses", () => {
     await syncExpenses({ db, sheets: sheets.client, log });
     assert.deepEqual(statuses(db), ["synced"]);
     assert.equal(sheets.rows.length, 1);
-    assert.deepEqual(sheets.rows[0].slice(1), ["Cafe", 12.5, "AUD", "Visa", "jarvis-1", "tap"]);
+    assert.deepEqual(sheets.rows[0].slice(1), ["Cafe", 12.5, "AUD", "Visa", "jarvis-1", "tap", "", ""]);
     await syncExpenses({ db, sheets: sheets.client, log });
     assert.equal(sheets.rows.length, 1, "synced rows are never written again");
   });

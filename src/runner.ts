@@ -7,9 +7,17 @@ export interface JobContext {
 }
 export type JobHandler = (ctx: JobContext) => void | Promise<void>;
 
+export interface JobOptions {
+  /** IANA time zone for the cron expression (default: this Mac's). */
+  timezone?: string;
+  /** A successful run that logged nothing is not recorded in `runs` (for jobs that run every minute). */
+  quiet?: boolean;
+}
+
 interface Registered {
   cron: Cron;
   handler: JobHandler;
+  quiet: boolean;
 }
 
 interface RunResult {
@@ -32,9 +40,13 @@ const insertRun = db.prepare(
 const finishRun = db.prepare(
   `UPDATE runs SET finished_at = ?, status = ?, duration_ms = ?, log = ? WHERE id = ?`,
 );
+// consecutive_failures is how many runs in a row failed (0 after any success). Alerts read it.
 const touchJob = db.prepare(
-  `UPDATE jobs SET last_run_at = ?, next_run_at = ? WHERE name = ?`,
+  `UPDATE jobs SET last_run_at = ?, next_run_at = ?,
+          consecutive_failures = CASE WHEN ? = 'success' THEN 0 ELSE consecutive_failures + 1 END
+    WHERE name = ?`,
 );
+const deleteRun = db.prepare(`DELETE FROM runs WHERE id = ?`);
 const setNext = db.prepare(`UPDATE jobs SET next_run_at = ? WHERE name = ?`);
 
 function iso(d: Date | null | undefined): string | null {
@@ -82,14 +94,18 @@ async function execute(name: string): Promise<RunResult> {
 
     const finished = new Date();
     try {
-      finishRun.run(
-        finished.toISOString(),
-        status,
-        finished.getTime() - started.getTime(),
-        lines.join("\n"),
-        runId,
-      );
-      touchJob.run(started.toISOString(), iso(entry.cron.nextRun()), name);
+      if (entry.quiet && status === "success" && lines.length === 0) {
+        deleteRun.run(runId); // nothing happened: do not clutter the run history
+      } else {
+        finishRun.run(
+          finished.toISOString(),
+          status,
+          finished.getTime() - started.getTime(),
+          lines.join("\n"),
+          runId,
+        );
+      }
+      touchJob.run(started.toISOString(), iso(entry.cron.nextRun()), status, name);
     } catch (dbErr) {
       // Bookkeeping must never take the server down either.
       console.error(`[runner] failed to record run for ${name}:`, (dbErr as Error).message);
@@ -101,17 +117,17 @@ async function execute(name: string): Promise<RunResult> {
   }
 }
 
-export function registerJob(name: string, cronExpression: string, handler: JobHandler): void {
+export function registerJob(name: string, cronExpression: string, handler: JobHandler, options: JobOptions = {}): void {
   if (registry.has(name)) throw new Error(`job already registered: ${name}`);
 
   const cron = new Cron(
     cronExpression,
-    { name, protect: true, catch: (e) => console.error(`[runner] ${name} crashed:`, e) },
+    { name, protect: true, timezone: options.timezone, catch: (e) => console.error(`[runner] ${name} crashed:`, e) },
     async () => {
       await execute(name);
     },
   );
-  registry.set(name, { cron, handler });
+  registry.set(name, { cron, handler, quiet: options.quiet ?? false });
 
   upsertJob.run(name, cronExpression);
   setNext.run(iso(cron.nextRun()), name);

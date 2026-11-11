@@ -29,7 +29,7 @@ export function expensesSection(db: Database.Database, now = Date.now()): string
   const err = db
     .prepare(
       `SELECT last_error, last_attempt_at FROM expenses
-        WHERE last_error IS NOT NULL AND (sheet_status IN ('pending','syncing') OR merchant IS NOT merchant_synced)
+        WHERE last_error IS NOT NULL AND (sheet_status IN ('pending','syncing') OR merchant IS NOT merchant_synced OR category IS NOT category_synced OR purpose IS NOT purpose_synced)
         ORDER BY last_attempt_at DESC LIMIT 1`,
     )
     .get() as { last_error: string; last_attempt_at: string } | undefined;

@@ -34,7 +34,17 @@ export function createExpenseTables(db: Database.Database): void {
       -- Set when a tap and an email were recognised as the same purchase and merged into this row.
       merged_at       TEXT,
       -- The merchant text last written to the Sheet (so a better name can be pushed later).
-      merchant_synced TEXT
+      merchant_synced TEXT,
+      -- Telegram questions. asked_at is set when the question is queued, so an expense is asked
+      -- about once, ever. answered_at is set by a button (including Skip) or a text reply.
+      category        TEXT,
+      purpose         TEXT,
+      asked_at        TEXT,
+      answered_at     TEXT,
+      question_message_id INTEGER,
+      -- What was last written to the Sheet (so changes are pushed to the existing row).
+      category_synced TEXT,
+      purpose_synced  TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_expenses_status ON expenses (sheet_status, id);
     CREATE INDEX IF NOT EXISTS idx_expenses_received ON expenses (received_at);
@@ -46,8 +56,20 @@ export function createExpenseTables(db: Database.Database): void {
   addColumnIfMissing(db, "expenses", "email_kind", "TEXT");
   addColumnIfMissing(db, "expenses", "merged_at", "TEXT");
   addColumnIfMissing(db, "expenses", "merchant_synced", "TEXT");
+  for (const col of ["category", "purpose", "asked_at", "answered_at", "category_synced", "purpose_synced"]) {
+    addColumnIfMissing(db, "expenses", col, "TEXT");
+  }
+  addColumnIfMissing(db, "expenses", "question_message_id", "INTEGER");
+  // Who chose the category: 'owner' (you), 'ai', or 'history' (same merchant as the last few times).
+  addColumnIfMissing(db, "expenses", "category_source", "TEXT");
+  // How many times the AI call for this expense failed (after 3 we ask you instead).
+  addColumnIfMissing(db, "expenses", "categorise_attempts", "INTEGER NOT NULL DEFAULT 0");
   db.exec(`
     UPDATE expenses SET merchant_synced = merchant WHERE sheet_status = 'synced' AND merchant_synced IS NULL;
+    -- Categories chosen before the AI existed were all chosen by the owner. "Food" is now "Food and drinks".
+    UPDATE expenses SET category_source = 'owner' WHERE category IS NOT NULL AND category_source IS NULL;
+    UPDATE expenses SET category = 'Food and drinks' WHERE category = 'Food';
+    CREATE INDEX IF NOT EXISTS idx_expenses_question ON expenses (question_message_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_email ON expenses (email_message_id) WHERE email_message_id IS NOT NULL;
   `);
 }

@@ -8,4 +8,6 @@ export const gmailAuth = new GmailAuth(
   config.GMAIL_CLIENT_ID ?? "",
   config.GMAIL_CLIENT_SECRET ?? "",
   config.GMAIL_REDIRECT_URI,
+  fetch,
+  config.GMAIL_CONSENT_DAYS,
 );

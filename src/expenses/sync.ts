@@ -13,6 +13,8 @@ interface Row {
   occurred_at: string;
   attempts: number;
   source: string;
+  category: string | null;
+  purpose: string | null;
 }
 
 /** Column F of the Sheet holds this, so we can tell if an expense is already there. */
@@ -67,7 +69,7 @@ export async function syncExpenses(opts: {
   }
 
   const next = db.prepare(
-    `SELECT id, merchant, amount_cents, currency, card, occurred_at, attempts, source FROM expenses
+    `SELECT id, merchant, amount_cents, currency, card, occurred_at, attempts, source, category, purpose FROM expenses
       WHERE sheet_status IN ('pending','syncing') AND id > ? ORDER BY id LIMIT 1`,
   );
   const failures: string[] = [];
@@ -93,12 +95,15 @@ export async function syncExpenses(opts: {
           row.card,
           sheetMarker(row.id),
           row.source, // column G: "tap" or "email"
+          row.category ?? "", // column H
+          row.purpose ?? "", // column I
         ]);
         log(`expense #${row.id} written to the Sheet${sheetRow ? ` (row ${sheetRow})` : ""}`);
       }
       db.prepare(
-        `UPDATE expenses SET sheet_status='synced', sheet_row=?, last_error=NULL, merchant_synced=? WHERE id=?`,
-      ).run(sheetRow, row.merchant, row.id);
+        `UPDATE expenses SET sheet_status='synced', sheet_row=?, last_error=NULL, merchant_synced=?,
+                category_synced=?, purpose_synced=? WHERE id=?`,
+      ).run(sheetRow, row.merchant, row.category, row.purpose, row.id);
       synced++;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -110,15 +115,16 @@ export async function syncExpenses(opts: {
     }
   }
 
-  // A merged expense can get a better merchant name after it was already written. Push just that cell.
-  if (!failures.length) await updateImprovedMerchants(db, sheets, log, failures);
+  // After an expense is in the Sheet, a better merchant name (from an email) or a Category/Purpose
+  // (from a Telegram answer) is pushed to that same row.
+  if (!failures.length) await updateChangedCells(db, sheets, log, failures);
 
   log(`synced ${synced}, failed ${failures.length}`);
   if (failures.length) throw new Error(`could not write ${failures.join(", ")} to the Sheet (see log above)`);
 }
 
-/** Rows already in the Sheet whose merchant in the database is now different (a better name from an email). */
-async function updateImprovedMerchants(
+/** Rows already in the Sheet whose merchant, category or purpose has changed since they were written. */
+async function updateChangedCells(
   db: Database.Database,
   sheets: SheetsClient,
   log: (m: string) => void,
@@ -126,25 +132,48 @@ async function updateImprovedMerchants(
 ): Promise<void> {
   const rows = db
     .prepare(
-      `SELECT id, merchant FROM expenses WHERE sheet_status = 'synced' AND merchant IS NOT merchant_synced ORDER BY id`,
+      `SELECT id, merchant, category, purpose, merchant_synced, category_synced, purpose_synced FROM expenses
+        WHERE sheet_status = 'synced'
+          AND (merchant IS NOT merchant_synced OR category IS NOT category_synced OR purpose IS NOT purpose_synced)
+        ORDER BY id`,
     )
-    .all() as { id: number; merchant: string }[];
+    .all() as {
+    id: number;
+    merchant: string;
+    category: string | null;
+    purpose: string | null;
+    merchant_synced: string | null;
+    category_synced: string | null;
+    purpose_synced: string | null;
+  }[];
   for (const r of rows) {
     try {
       // Look the row up by its id marker: the user may have sorted or deleted rows since.
       const sheetRow = await sheets.findRow(sheetMarker(r.id));
       if (sheetRow === null) {
-        log(`expense #${r.id} is no longer in the Sheet, not updating its merchant`);
+        log(`expense #${r.id} is no longer in the Sheet, not updating it`);
       } else {
-        await sheets.setMerchant(sheetRow, r.merchant);
-        log(`expense #${r.id} merchant updated in the Sheet (row ${sheetRow}): ${r.merchant}`);
+        if (r.merchant !== r.merchant_synced) {
+          await sheets.setMerchant(sheetRow, r.merchant);
+          log(`expense #${r.id} merchant updated in the Sheet (row ${sheetRow}): ${r.merchant}`);
+        }
+        if (r.category !== r.category_synced || r.purpose !== r.purpose_synced) {
+          await sheets.setLabels(sheetRow, r.category ?? "", r.purpose ?? "");
+          log(`expense #${r.id} category/purpose updated in the Sheet (row ${sheetRow})`);
+        }
       }
-      db.prepare(`UPDATE expenses SET merchant_synced = ?, last_error = NULL WHERE id = ?`).run(r.merchant, r.id);
+      db.prepare(
+        `UPDATE expenses SET merchant_synced = ?, category_synced = ?, purpose_synced = ?, last_error = NULL WHERE id = ?`,
+      ).run(r.merchant, r.category, r.purpose, r.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      db.prepare(`UPDATE expenses SET last_error = ?, last_attempt_at = ? WHERE id = ?`).run(message, new Date().toISOString(), r.id);
-      log(`expense #${r.id} merchant update FAILED, will retry: ${message}`);
-      failures.push(`#${r.id} (merchant)`);
+      db.prepare(`UPDATE expenses SET last_error = ?, last_attempt_at = ?, attempts = attempts + 1 WHERE id = ?`).run(
+        message,
+        new Date().toISOString(),
+        r.id,
+      );
+      log(`expense #${r.id} sheet update FAILED, will retry: ${message}`);
+      failures.push(`#${r.id} (update)`);
       if (!(err instanceof SheetsError) || err.fatal) break;
     }
   }

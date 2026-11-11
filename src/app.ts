@@ -8,6 +8,7 @@ import { gmailSection } from "./gmail/status";
 import { esc } from "./html";
 import { triggerJob } from "./runner";
 import { spotifyRoutes } from "./spotify/routes";
+import { telegramSection } from "./telegram/status";
 import { getWebhook } from "./webhooks";
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest();
@@ -132,6 +133,7 @@ app.get("/", (c) => {
 <p><a href="/spotify">Spotify dashboard</a> · <a href="/gmail">Gmail invoices</a></p>
 ${expensesSection(db)}
 ${gmailSection(db)}
+${telegramSection(db)}
 <h2>Jobs</h2>
 <table><tr><th>Name</th><th>Schedule</th><th>Enabled</th><th>Last run (UTC)</th><th>Last status</th><th>Next run (UTC)</th></tr>
 ${jobRows || '<tr><td colspan="6">No jobs registered</td></tr>'}</table>

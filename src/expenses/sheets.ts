@@ -7,10 +7,12 @@ import fs from "node:fs";
 export interface SheetsClient {
   /** Row number of the Sheet row whose column F equals `marker`, or null. */
   findRow(marker: string): Promise<number | null>;
-  /** Append one row (columns A-G). Returns the row number it landed on, if Google says. */
+  /** Append one row (columns A-I). Returns the row number it landed on, if Google says. */
   appendRow(values: (string | number)[]): Promise<number | null>;
   /** Replace the merchant (column B) of an existing row. */
   setMerchant(row: number, merchant: string): Promise<void>;
+  /** Replace Category and Purpose (columns H and I) of an existing row. */
+  setLabels(row: number, category: string, purpose: string): Promise<void>;
 }
 
 /** fatal = retrying right away will not help (bad auth, network down, Google erroring). */
@@ -164,7 +166,7 @@ export class GoogleSheets implements SheetsClient {
   async appendRow(values: (string | number)[]): Promise<number | null> {
     await this.ensureDateTimeColumn();
     const json = await this.sheetsCall(
-      `values/${this.range("A:G")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+      `values/${this.range("A:I")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -180,6 +182,14 @@ export class GoogleSheets implements SheetsClient {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ values: [[safeText(merchant)]] }),
+    });
+  }
+
+  async setLabels(row: number, category: string, purpose: string): Promise<void> {
+    await this.sheetsCall(`values/${this.range(`H${row}:I${row}`)}?valueInputOption=USER_ENTERED`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ values: [[safeText(category), safeText(purpose)]] }),
     });
   }
 }

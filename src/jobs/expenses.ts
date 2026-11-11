@@ -6,6 +6,7 @@ import { syncExpenses } from "../expenses/sync";
 import { createExpenseWebhook } from "../expenses/webhook";
 import { recordApiCall } from "../spotify/usage";
 import { registerJob, triggerJob } from "../runner";
+import { CATEGORISE_JOB } from "../telegram/settings";
 import { registerWebhook } from "../webhooks";
 
 export const SYNC_JOB = "expenses-sync";
@@ -36,7 +37,13 @@ export function registerExpenses(): void {
   // Store first and answer 202; the Sheet is written afterwards, never while the Shortcut waits.
   registerWebhook(
     "expenses",
-    createExpenseWebhook({ db, onStored: () => triggerJob(SYNC_JOB) }),
+    createExpenseWebhook({
+      db,
+      onStored: () => {
+        triggerJob(SYNC_JOB);
+        triggerJob(CATEGORISE_JOB); // pick a category right away (or ask on Telegram)
+      },
+    }),
   );
   registerJob(SYNC_JOB, SYNC_CRON, ({ log }) => syncExpenses({ db, sheets, log }));
 }

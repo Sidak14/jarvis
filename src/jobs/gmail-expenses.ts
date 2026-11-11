@@ -7,6 +7,7 @@ import { gmailAuth } from "../gmail";
 import { runGmailExpenses } from "../gmail/job";
 import { JOB_NAME, POLL_CRON } from "../gmail/settings";
 import { registerJob, triggerJob } from "../runner";
+import { CATEGORISE_JOB } from "../telegram/settings";
 
 export function registerGmailExpenses(): void {
   registerJob(JOB_NAME, POLL_CRON, async ({ log }) => {
@@ -23,7 +24,10 @@ export function registerGmailExpenses(): void {
       llm: createGatewayLlm({ apiKey: config.AI_GATEWAY_API_KEY, db }),
       dryRun: config.GMAIL_DRY_RUN,
       log,
-      onChanged: () => triggerJob(SYNC_JOB),
+      onChanged: () => {
+        triggerJob(SYNC_JOB);
+        triggerJob(CATEGORISE_JOB);
+      },
     });
   });
 }
