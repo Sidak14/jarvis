@@ -1,0 +1,6 @@
+title: Home
+views:
+  - title: Home
+    cards:
+      - type: markdown
+        content: Starter dashboard. Shelly devices are added once they are found.

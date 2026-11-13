@@ -1,0 +1,45 @@
+# Home Assistant configuration. Everything here is a file on purpose: edit it, run check_config, reload, commit.
+# See ~/homeassistant/README.md for the workflow. Never edit .storage/ by hand (HA owns it).
+
+homeassistant:
+  name: Home
+  unit_system: metric
+  time_zone: Australia/Sydney
+  country: AU
+  currency: AUD
+  internal_url: http://192.168.4.54:8123
+  # Grouped logic: one file per topic in packages/ (each can hold automations, scripts, helpers, templates...).
+  packages: !include_dir_named packages
+
+# Discovery (Shelly, Zigbee/USB, DHCP), the UI, history, energy, assist and the rest of the standard set.
+default_config:
+
+# LAN only: listens on port 8123. No tunnel, no port forwarding. (A reverse proxy would need trusted_proxies here.)
+http:
+  server_port: 8123
+
+# Split config: the UI editor also writes to automations.yaml and scenes.yaml, so these stay plain lists.
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+# The default "Overview" dashboard stays managed by the UI. Extra dashboards are YAML files in dashboards/.
+lovelace:
+  mode: storage
+  dashboards:
+    dashboard-home:
+      mode: yaml
+      filename: dashboards/home.yaml
+      title: Home
+      icon: mdi:home
+      show_in_sidebar: true
+
+# Keep the log readable: warnings and errors, with a few integrations of interest turned up.
+logger:
+  default: warning
+  logs:
+    homeassistant.components.shelly: info
+    homeassistant.components.zha: info
+    homeassistant.components.automation: info
+    # No Bluetooth manager on this Mac: it logs an error every 15 seconds. Harmless, so silence it.
+    bleak_retry_connector.bluez: critical
