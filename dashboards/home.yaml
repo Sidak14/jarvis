@@ -1,6 +1,102 @@
+# Home dashboard (YAML mode). Shelly entities grouped by device until rooms (areas) are set up;
+# once devices have areas, regroup by room here. Edit the file, then reload the browser page.
 title: Home
 views:
   - title: Home
+    path: home
+    icon: mdi:home
     cards:
-      - type: markdown
-        content: Starter dashboard. Shelly devices are added once they are found.
+      - type: entities
+        title: Shelly 2.5 · 192.168.4.155 (C8C9A375A239)
+        show_header_toggle: false
+        entities:
+          - entity: switch.shellyswitch25_c8c9a375a239_channel_1
+            name: Channel 1 relay
+          - entity: sensor.shellyswitch25_c8c9a375a239_channel_1_power
+            name: Channel 1 power
+          - entity: sensor.shellyswitch25_c8c9a375a239_channel_1_energy
+            name: Channel 1 energy
+          - entity: binary_sensor.shellyswitch25_c8c9a375a239_channel_1_input
+            name: Channel 1 input
+          - entity: switch.shellyswitch25_c8c9a375a239_channel_2
+            name: Channel 2 relay
+          - entity: sensor.shellyswitch25_c8c9a375a239_channel_2_power
+            name: Channel 2 power
+          - entity: sensor.shellyswitch25_c8c9a375a239_channel_2_energy
+            name: Channel 2 energy
+          - entity: binary_sensor.shellyswitch25_c8c9a375a239_channel_2_input
+            name: Channel 2 input
+          - entity: binary_sensor.shellyswitch25_c8c9a375a239_overheating
+            name: Overheating
+      - type: entities
+        title: Shelly 2.5 · 192.168.4.156 (C8C9A37A653A)
+        show_header_toggle: false
+        entities:
+          - entity: switch.shellyswitch25_c8c9a37a653a_channel_1
+            name: Channel 1 relay
+          - entity: sensor.shellyswitch25_c8c9a37a653a_channel_1_power
+            name: Channel 1 power
+          - entity: sensor.shellyswitch25_c8c9a37a653a_channel_1_energy
+            name: Channel 1 energy
+          - entity: binary_sensor.shellyswitch25_c8c9a37a653a_channel_1_input
+            name: Channel 1 input
+          - entity: switch.shellyswitch25_c8c9a37a653a_channel_2
+            name: Channel 2 relay
+          - entity: sensor.shellyswitch25_c8c9a37a653a_channel_2_power
+            name: Channel 2 power
+          - entity: sensor.shellyswitch25_c8c9a37a653a_channel_2_energy
+            name: Channel 2 energy
+          - entity: binary_sensor.shellyswitch25_c8c9a37a653a_channel_2_input
+            name: Channel 2 input
+          - entity: binary_sensor.shellyswitch25_c8c9a37a653a_overheating
+            name: Overheating
+      - type: entities
+        title: Shelly 2.5 · 192.168.4.158 (C8C9A375C8B2)
+        show_header_toggle: false
+        entities:
+          - entity: switch.shellyswitch25_c8c9a375c8b2_channel_1
+            name: Channel 1 relay
+          - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_1_power
+            name: Channel 1 power
+          - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_1_energy
+            name: Channel 1 energy
+          - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_channel_1_input
+            name: Channel 1 input
+          - entity: switch.shellyswitch25_c8c9a375c8b2_channel_2
+            name: Channel 2 relay
+          - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_2_power
+            name: Channel 2 power
+          - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_2_energy
+            name: Channel 2 energy
+          - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_channel_2_input
+            name: Channel 2 input
+          - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_overheating
+            name: Overheating
+      - type: entities
+        title: Shelly 1PM · 192.168.4.154 (34945472B313)
+        show_header_toggle: false
+        entities:
+          - entity: switch.shelly1pm_34945472b313
+            name: Relay
+          - entity: sensor.shelly1pm_34945472b313_power
+            name: Power
+          - entity: sensor.shelly1pm_34945472b313_energy
+            name: Energy
+          - entity: binary_sensor.shelly1pm_34945472b313_input
+            name: Input
+          - entity: binary_sensor.shelly1pm_34945472b313_overheating
+            name: Overheating
+      - type: entities
+        title: Shelly 1PM · 192.168.4.157 (34945471AD19)
+        show_header_toggle: false
+        entities:
+          - entity: switch.shelly1pm_34945471ad19
+            name: Relay
+          - entity: sensor.shelly1pm_34945471ad19_power
+            name: Power
+          - entity: sensor.shelly1pm_34945471ad19_energy
+            name: Energy
+          - entity: binary_sensor.shelly1pm_34945471ad19_input
+            name: Input
+          - entity: binary_sensor.shelly1pm_34945471ad19_overheating
+            name: Overheating
