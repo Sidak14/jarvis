@@ -256,6 +256,28 @@ views:
           name: Consumption
         - entity: sensor.smart_plug_signal_strength
           name: Wi-Fi signal
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.meross_78_reachable
+        state: 'on'
+      card:
+        type: entities
+        title: Smart Plug backyard 2 · 78
+        show_header_toggle: false
+        entities:
+        - entity: switch.smart_plug_backyard_2
+          name: Smart Plug backyard 2
+        - entity: sensor.smart_plug_backyard_2_power
+          name: Power
+        - entity: sensor.smart_plug_backyard_2_voltage
+          name: Voltage
+        - entity: sensor.smart_plug_backyard_2_current
+          name: Current
+        - entity: sensor.smart_plug_backyard_2_consumption
+          name: Consumption
+        - entity: sensor.smart_plug_backyard_2_signal_strength
+          name: Wi-Fi signal
   - type: grid
     column_span: 3
     cards:
@@ -393,3 +415,16 @@ views:
           Not reachable on the network.
 
           MAC C4:E7:AE:12:13:0B'
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.meross_78_reachable
+        state: 'off'
+      card:
+        type: markdown
+        title: Smart Plug backyard 2 · 78
+        content: 'Meross MSS315 at 192.168.4.78
+
+          Not reachable on the network.
+
+          MAC C4:E7:AE:1D:CF:A0'
