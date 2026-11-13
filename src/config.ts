@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { z } from "zod";
 
@@ -83,6 +84,21 @@ const schema = z.object({
     .refine((u) => new URL(u).pathname === "/calendar/callback", "must end with /calendar/callback")
     .optional(),
 
+  // Event photos -> OneDrive. Safe by default: detects runs and logs "would save", never downloads or uploads.
+  PHOTOS_DRY_RUN: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  // Photos count from the plan's END (default) or its START (also catches photos sent during the event).
+  PHOTO_WINDOW_START: z.enum(["end", "start"]).default("end"),
+  // A run is this many photos/videos from one sender, each within PHOTOS_RUN_GAP_MINUTES of the previous.
+  PHOTOS_MIN_RUN: z.coerce.number().int().min(1).max(100).default(4),
+  PHOTOS_RUN_GAP_MINUTES: z.coerce.number().positive().max(240).default(10),
+  // The Azure app (client) id for the personal OneDrive sign-in. See README "Event photos".
+  MS_CLIENT_ID: z.string().min(10).optional(),
+  // Beeper Server's data folder: a downloaded file is only used if it is inside here.
+  BEEPER_MEDIA_ROOT: z.string().min(1).default(path.join(os.homedir(), "beeper-prod-test", "home", ".beeper")),
+
   // Google Sheets for expenses. Optional: without them expenses are stored and the sync waits.
   GOOGLE_SHEET_ID: z.string().min(1).optional(),
   // Path to the service account's JSON key (outside git, chmod 600).
@@ -121,6 +137,7 @@ export function redactedConfig(): Record<string, string | number | boolean | und
     WEBHOOK_SECRET: "***",
     SPOTIFY_CLIENT_ID: config.SPOTIFY_CLIENT_ID ? "***" : undefined,
     SPOTIFY_CLIENT_SECRET: config.SPOTIFY_CLIENT_SECRET ? "***" : undefined,
+    MS_CLIENT_ID: config.MS_CLIENT_ID ? "***" : undefined,
     GOOGLE_SHEET_ID: config.GOOGLE_SHEET_ID ? "***" : undefined,
     GMAIL_CLIENT_ID: config.GMAIL_CLIENT_ID ? "***" : undefined,
     GMAIL_CLIENT_SECRET: config.GMAIL_CLIENT_SECRET ? "***" : undefined,

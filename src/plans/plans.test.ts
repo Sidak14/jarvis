@@ -931,7 +931,7 @@ describe("safety", () => {
     // the reader only exposes reads
     const reader = fs.readFileSync(path.join(dir, "beeper.ts"), "utf8");
     const iface = reader.slice(reader.indexOf("export interface BeeperReader"), reader.indexOf("type SdkChat"));
-    assert.deepEqual([...iface.matchAll(/^\s+(\w+)\(/gm)].map((m) => m[1]), ["check", "listChats", "getChat", "recentMessages"]);
+    assert.deepEqual([...iface.matchAll(/^\s+(\w+)\(/gm)].map((m) => m[1]), ["check", "listChats", "getChat", "recentMessages", "recentMedia", "downloadMedia"]); // downloadMedia only asks the Server to cache a file locally
   });
 
   it("the plans page escapes everything that came from a chat", () => {

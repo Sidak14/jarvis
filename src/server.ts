@@ -4,6 +4,7 @@ import { app } from "./app";
 import { closeDb } from "./db";
 import { registerExpenses } from "./jobs/expenses";
 import { registerGmailExpenses } from "./jobs/gmail-expenses";
+import { registerPhotos } from "./jobs/photos";
 import { registerPlans } from "./jobs/plans";
 import { registerTelegram, startTelegramBot } from "./jobs/telegram";
 import { registerHeartbeat } from "./jobs/heartbeat";
@@ -18,6 +19,7 @@ registerExpenses();
 registerGmailExpenses();
 registerTelegram();
 registerPlans();
+registerPhotos();
 
 const stopBot = startTelegramBot();
 
