@@ -241,20 +241,20 @@ views:
         state: 'on'
       card:
         type: entities
-        title: Smart Plug · 25
+        title: Courtyard Lights · 25
         show_header_toggle: false
         entities:
-        - entity: switch.smart_plug
-          name: Smart Plug
-        - entity: sensor.smart_plug_power
+        - entity: switch.courtyard_lights
+          name: Courtyard Lights
+        - entity: sensor.courtyard_lights_power
           name: Power
-        - entity: sensor.smart_plug_voltage
+        - entity: sensor.courtyard_lights_voltage
           name: Voltage
-        - entity: sensor.smart_plug_current
+        - entity: sensor.courtyard_lights_current
           name: Current
-        - entity: sensor.smart_plug_consumption
+        - entity: sensor.courtyard_lights_consumption
           name: Consumption
-        - entity: sensor.smart_plug_signal_strength
+        - entity: sensor.courtyard_lights_signal_strength
           name: Wi-Fi signal
     - type: conditional
       conditions:
@@ -426,7 +426,7 @@ views:
         state: 'off'
       card:
         type: markdown
-        title: Smart Plug · 25
+        title: Courtyard Lights · 25
         content: 'Meross MSS310 at 192.168.4.25
 
           Not reachable on the network.

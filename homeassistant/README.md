@@ -55,7 +55,7 @@ Do not re-enable it, do not use it in automations or scenes. The wall switch is 
 ## Meross plugs (custom integration)
 Installed by hand, not through HACS: `config/custom_components/meross_lan/`, **version 6.0.1** (from https://github.com/krahabb/meross_lan/releases/tag/v6.0.1). It is third-party code, so it is git-ignored and pinned here.
 To reinstall or upgrade: download the release source zip, replace the folder, `./ha.sh check-config`, `./ha.sh restart`, and read the issue tracker first (6.0.0 broke many plugs; 6.0.1 fixed most; some models still drop offline for ~30 s every so often, issue #743).
-Added through the Meross account login (profile). Plugs in Home Assistant: Water Fountain (MSS315, .20), Smart Plug (MSS310, .25), Smart Plug backyard 1 (MSS315, .28). The fourth, Smart Plug backyard 2 (MSS315, .78, C4:E7:AE:1D:CF:A0), was offline at first and was added later.
+Added through the Meross account login (profile). Plugs in Home Assistant: Water Fountain (MSS315, .20), Courtyard Lights (MSS310, .25; was "Smart Plug"), Smart Plug backyard 1 (MSS315, .28). The fourth, Smart Plug backyard 2 (MSS315, .78, C4:E7:AE:1D:CF:A0), was offline at first and was added later.
 Entity ids were renamed after the devices (`switch.water_fountain`, `sensor.water_fountain_power`, ...). `light.*_dnd` is the plug's status LED, not a lamp.
 
 ## ESPHome (Athom garage door opener)

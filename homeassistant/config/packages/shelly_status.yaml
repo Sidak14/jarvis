@@ -44,7 +44,7 @@ template:
       - name: Meross 25 reachable
         unique_id: meross_25_reachable
         device_class: connectivity
-        state: "{{ states('switch.smart_plug') in ['on', 'off'] }}"
+        state: "{{ states('switch.courtyard_lights') in ['on', 'off'] }}"
       - name: Meross 78 reachable
         unique_id: meross_78_reachable
         device_class: connectivity
