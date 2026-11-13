@@ -100,3 +100,25 @@ views:
             name: Input
           - entity: binary_sensor.shelly1pm_34945471ad19_overheating
             name: Overheating
+      - type: entities
+        title: Shelly 2.5 · 192.168.4.153 (C45BBE6BD1EE)
+        show_header_toggle: false
+        entities:
+          - entity: switch.shellyswitch25_c45bbe6bd1ee_channel_1
+            name: Channel 1 relay
+          - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_1_power
+            name: Channel 1 power
+          - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_1_energy
+            name: Channel 1 energy
+          - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_channel_1_input
+            name: Channel 1 input
+          - entity: switch.shellyswitch25_c45bbe6bd1ee_channel_2
+            name: Channel 2 relay
+          - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_2_power
+            name: Channel 2 power
+          - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_2_energy
+            name: Channel 2 energy
+          - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_channel_2_input
+            name: Channel 2 input
+          - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_overheating
+            name: Overheating
