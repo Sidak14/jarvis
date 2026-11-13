@@ -1,0 +1,19 @@
+# Secrets and everything Home Assistant owns or generates: never committed.
+secrets.yaml
+.storage/
+.cloud/
+.HA_VERSION
+.uuid
+*.db
+*.db-shm
+*.db-wal
+*.log
+*.log.*
+home-assistant.log*
+__pycache__/
+*.pyc
+deps/
+tts/
+.DS_Store
+.ha_run.lock
+.cache/

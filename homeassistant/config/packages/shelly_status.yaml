@@ -1,0 +1,33 @@
+# Shelly reachability: one always-present sensor per Shelly (on = its relay reports on/off, off = unavailable or missing).
+# NOTE: Shelly 156 channel 2 (Frontyard Top Lights) trips the main circuit if switched on. It is disabled in HA on purpose.
+# The Home dashboard uses these to sort devices into Connected / Unreachable. Add a Shelly here when you add one to the house.
+template:
+  - binary_sensor:
+      - name: Shelly 155 reachable
+        unique_id: shelly_155_reachable
+        device_class: connectivity
+        state: "{{ states('switch.shellyswitch25_c8c9a375a239_channel_1') in ['on', 'off'] }}"
+      - name: Shelly 156 reachable
+        unique_id: shelly_156_reachable
+        device_class: connectivity
+        state: "{{ states('switch.shellyswitch25_c8c9a37a653a_channel_1') in ['on', 'off'] }}"
+      - name: Shelly 158 reachable
+        unique_id: shelly_158_reachable
+        device_class: connectivity
+        state: "{{ states('switch.shellyswitch25_c8c9a375c8b2_channel_1') in ['on', 'off'] }}"
+      - name: Shelly 153 reachable
+        unique_id: shelly_153_reachable
+        device_class: connectivity
+        state: "{{ states('switch.shellyswitch25_c45bbe6bd1ee_channel_1') in ['on', 'off'] }}"
+      - name: Shelly 154 reachable
+        unique_id: shelly_154_reachable
+        device_class: connectivity
+        state: "{{ states('switch.shelly1pm_34945472b313') in ['on', 'off'] }}"
+      - name: Shelly 157 reachable
+        unique_id: shelly_157_reachable
+        device_class: connectivity
+        state: "{{ states('switch.shelly1pm_34945471ad19') in ['on', 'off'] }}"
+      - name: Shelly 152 reachable
+        unique_id: shelly_152_reachable
+        device_class: connectivity
+        state: "{{ states('switch.shelly1pm_34945471a117') in ['on', 'off'] }}"
