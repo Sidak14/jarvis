@@ -51,3 +51,8 @@ Nabu Casa SkyConnect on `/dev/cu.usbserial-1460` (EZSP). The number comes from t
 **Frontyard Top Lights (`switch.shellyswitch25_c8c9a37a653a_channel_2`) must never be turned on from Home Assistant: it trips the main circuit every time.**
 Its entity is disabled in the entity registry, the dashboard shows it read-only, and `ha.sh call-service` refuses it.
 Do not re-enable it, do not use it in automations or scenes. The wall switch is unaffected.
+
+## Meross plugs (custom integration)
+Installed by hand, not through HACS: `config/custom_components/meross_lan/`, **version 6.0.1** (from https://github.com/krahabb/meross_lan/releases/tag/v6.0.1). It is third-party code, so it is git-ignored and pinned here.
+To reinstall or upgrade: download the release source zip, replace the folder, `./ha.sh check-config`, `./ha.sh restart`, and read the issue tracker first (6.0.0 broke many plugs; 6.0.1 fixed most; some models still drop offline for ~30 s every so often, issue #743).
+The plugs are the four `C4:E7:AE:*` devices at 192.168.4.20, .25, .28, .78 (give them DHCP reservations in eero).

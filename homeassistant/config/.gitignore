@@ -17,3 +17,5 @@ tts/
 .DS_Store
 .ha_run.lock
 .cache/
+# Third-party code, installed by hand (see README: Meross)
+custom_components/
