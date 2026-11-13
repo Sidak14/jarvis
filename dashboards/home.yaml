@@ -19,10 +19,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shellyswitch25_c8c9a375a239_channel_1
-                state:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_155_reachable
+                state: 'on'
             card:
               type: entities
               title: Shelly 2.5 · 192.168.4.155
@@ -49,10 +47,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shellyswitch25_c8c9a37a653a_channel_1
-                state:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_156_reachable
+                state: 'on'
             card:
               type: entities
               title: Shelly 2.5 · 192.168.4.156
@@ -79,10 +75,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shellyswitch25_c8c9a375c8b2_channel_1
-                state:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_158_reachable
+                state: 'on'
             card:
               type: entities
               title: Shelly 2.5 · 192.168.4.158
@@ -109,10 +103,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shellyswitch25_c45bbe6bd1ee_channel_1
-                state:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_153_reachable
+                state: 'on'
             card:
               type: entities
               title: Shelly 2.5 · 192.168.4.153
@@ -139,10 +131,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shelly1pm_34945472b313
-                state:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_154_reachable
+                state: 'on'
             card:
               type: entities
               title: Shelly 1PM · 192.168.4.154
@@ -161,10 +151,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shelly1pm_34945471ad19
-                state:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_157_reachable
+                state: 'on'
             card:
               type: entities
               title: Shelly 1PM · 192.168.4.157
@@ -183,10 +171,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shelly1pm_34945471a117
-                state:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_152_reachable
+                state: 'on'
             card:
               type: entities
               title: Shelly 1PM · 192.168.4.152
@@ -212,10 +198,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shellyswitch25_c8c9a375a239_channel_1
-                state_not:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_155_reachable
+                state_not: 'on'
             card:
               type: markdown
               title: Shelly 2.5 · 192.168.4.155
@@ -225,10 +209,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shellyswitch25_c8c9a37a653a_channel_1
-                state_not:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_156_reachable
+                state_not: 'on'
             card:
               type: markdown
               title: Shelly 2.5 · 192.168.4.156
@@ -238,10 +220,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shellyswitch25_c8c9a375c8b2_channel_1
-                state_not:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_158_reachable
+                state_not: 'on'
             card:
               type: markdown
               title: Shelly 2.5 · 192.168.4.158
@@ -251,10 +231,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shellyswitch25_c45bbe6bd1ee_channel_1
-                state_not:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_153_reachable
+                state_not: 'on'
             card:
               type: markdown
               title: Shelly 2.5 · 192.168.4.153
@@ -264,10 +242,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shelly1pm_34945472b313
-                state_not:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_154_reachable
+                state_not: 'on'
             card:
               type: markdown
               title: Shelly 1PM · 192.168.4.154
@@ -277,10 +253,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shelly1pm_34945471ad19
-                state_not:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_157_reachable
+                state_not: 'on'
             card:
               type: markdown
               title: Shelly 1PM · 192.168.4.157
@@ -290,10 +264,8 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: switch.shelly1pm_34945471a117
-                state_not:
-                  - 'on'
-                  - 'off'
+                entity: binary_sensor.shelly_152_reachable
+                state_not: 'on'
             card:
               type: markdown
               title: Shelly 1PM · 192.168.4.152
