@@ -38,7 +38,7 @@ export interface WouldRow {
   created_at: string;
 }
 
-export function plansBody(opts: { plans: Plan[]; today: string; dryRun: boolean; would: WouldRow[]; chatsLine: string; statusHtml: string }): string {
+export function plansBody(opts: { plans: Plan[]; today: string; dryRun: boolean; would: WouldRow[]; chatsLine: string; statusHtml: string; photosHtml?: string }): string {
   const { plans, today } = opts;
   const live = plans.filter((p) => !p.archived_at && p.plan_status !== "cancelled" && p.my_stance !== "declined" && (p.date === null || p.date >= today));
   const unreplied = (p: Plan) => p.replied_at === null && p.my_stance !== "committed" && p.my_stance !== "declined";
@@ -69,6 +69,7 @@ ${opts.statusHtml}
 <h2>Proposed / waiting (${proposed.length})</h2>${table(proposed.map((p) => planRow(p)).join(""))}
 <details><summary><strong>Past, cancelled or declined (${past.length})</strong></summary>${table(past.map((p) => planRow(p)).join(""))}</details>
 ${opts.dryRun ? `<h2>Dry run: what Jarvis WOULD have done</h2><table><tr><th>When</th><th>Plan</th><th>Action</th><th>Detail</th></tr>${wouldRows || `<tr><td colspan="4" class="muted">Nothing yet.</td></tr>`}</table>` : ""}
+${opts.photosHtml ?? ""}
 <h2>Chats being read</h2>
 <p class="muted">${opts.chatsLine}</p>`;
 }

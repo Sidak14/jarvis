@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import BeeperDesktop from "@beeper/desktop-api";
 import { ALLOWED_BRIDGES, CHATS_PAGE_LIMIT, CHATS_SCAN_LIMIT } from "./settings";
 
@@ -46,9 +48,28 @@ export interface BeeperReader {
 /** True only for chats on a network Jarvis is allowed to read (Instagram). Everything else is ignored. */
 export const isAllowedNetwork = (accountId: string) => ALLOWED_BRIDGES.includes(accountId.split(".")[0]);
 
+/** Photos and videos in a chat (what the event-photos feature needs). Ids and times only: never message text. */
+export interface MediaRef {
+  chatId: string;
+  messageId: string;
+  attachmentId: string; // the mxc:// url
+  index: number;
+  senderId: string;
+  ts: string;
+  kind: "IMAGE" | "VIDEO";
+  mime: string | null;
+  size: number | null;
+}
+export interface MediaReader {
+  /** Photo and video attachments newer than `sinceIso` in a chat that listChats()/getChat() has shown. No stickers, GIFs or voice notes. */
+  recentMedia(chatId: string, sinceIso: string, maxPages: number): Promise<MediaRef[]>;
+  /** Ask the Server to fetch one attachment to its local cache. Returns the cached file's path (checked to be a plain file inside `mediaRoot`). */
+  downloadMedia(attachmentUrl: string): Promise<string>;
+}
+
 type SdkChat = Awaited<ReturnType<BeeperDesktop["chats"]["retrieve"]>>;
 
-export function createBeeperReader(opts: { accessToken: string; baseURL: string }): BeeperReader {
+export function createBeeperReader(opts: { accessToken: string; baseURL: string; mediaRoot?: string }): BeeperReader & MediaReader {
   const client = new BeeperDesktop({ accessToken: opts.accessToken, baseURL: opts.baseURL, maxRetries: 1, timeout: 20_000 });
   let selfIds = new Set<string>();
   // Chats seen on an allowed network. A message read for any other chat id is refused.
@@ -124,6 +145,43 @@ export function createBeeperReader(opts: { accessToken: string; baseURL: string 
         cursor = res.oldestCursor;
       }
       return found.filter((m) => m.ts > sinceIso);
+    },
+
+    async recentMedia(chatId, sinceIso, maxPages) {
+      if (!readable.has(chatId)) throw new Error("that chat is not on an allowed network");
+      const found: MediaRef[] = [];
+      let cursor: string | null | undefined;
+      for (let page = 0; page < maxPages; page++) {
+        const res = await client.messages.list(chatId, cursor ? { cursor, direction: "before" } : undefined);
+        for (const m of res.items) {
+          if ((m.type !== "IMAGE" && m.type !== "VIDEO") || m.isDeleted || m.isHidden) continue;
+          (m.attachments ?? []).forEach((a, index) => {
+            // Photos and videos only: no stickers, GIFs, voice notes or audio. An attachment without an id cannot be fetched.
+            if (!a.id || a.isGif || a.isSticker || a.isVoiceNote || (a.type !== "img" && a.type !== "video")) return;
+            found.push({
+              chatId, messageId: m.id, attachmentId: a.id, index, senderId: m.senderID, ts: new Date(m.timestamp).toISOString(),
+              kind: a.type === "video" ? "VIDEO" : "IMAGE", mime: a.mimeType || null, size: typeof a.fileSize === "number" ? a.fileSize : null,
+            });
+          });
+        }
+        const times = res.items.map((m) => Date.parse(m.timestamp)).filter(Number.isFinite);
+        const oldest = times.length ? Math.min(...times) : Infinity;
+        if (!res.hasMore || !res.oldestCursor || oldest < Date.parse(sinceIso)) break;
+        cursor = res.oldestCursor;
+      }
+      return found.filter((m) => m.ts > sinceIso);
+    },
+
+    async downloadMedia(attachmentUrl) {
+      if (!/^(mxc|localmxc):\/\//.test(attachmentUrl)) throw new Error("not a Beeper media url");
+      const res = await client.assets.download({ url: attachmentUrl });
+      if (res.error || !res.srcURL) throw new Error(`Beeper could not fetch the file: ${(res.error ?? "no file").slice(0, 100)}`);
+      if (!res.srcURL.startsWith("file://")) throw new Error("Beeper gave a path that is not a local file");
+      const file = fs.realpathSync(decodeURIComponent(new URL(res.srcURL).pathname));
+      const root = opts.mediaRoot ? fs.realpathSync(opts.mediaRoot) : null;
+      if (!root || !file.startsWith(root + path.sep)) throw new Error("the downloaded file is outside Beeper's data folder");
+      if (!fs.statSync(file).isFile()) throw new Error("the downloaded path is not a regular file");
+      return file;
     },
   };
 }

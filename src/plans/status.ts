@@ -6,6 +6,7 @@ import { config } from "../config";
 import { esc } from "../html";
 import { ago } from "../telegram/format";
 import { loadAllowlist } from "./allowlist";
+import { photosSection } from "../photos/status";
 import { getState } from "./store";
 
 function calendarState(db: Database.Database): string {
@@ -41,5 +42,6 @@ export function plansSection(db: Database.Database, now = new Date()): string {
    Plans found this week: ${found} · messages waiting: ${pending}<br>
    AI spend this month: $${spend.toFixed(2)} of $${MONTHLY_SPEND_CAP_USD} · Calendar: ${calendarState(db)}
    · <a href="/plans">Open the plans page</a></p>
-${runError ? `<p class="failure"><strong>Last error:</strong> ${esc(runError)}</p>` : ""}`;
+${runError ? `<p class="failure"><strong>Last error:</strong> ${esc(runError)}</p>` : ""}
+${photosSection(db, now)}`;
 }

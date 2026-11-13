@@ -7,6 +7,7 @@ import { createTelegramTables } from "./telegram/schema";
 import { createGmailTables } from "./gmail/schema";
 import { createExpenseTables } from "./expenses/schema";
 import { createPlansTables } from "./plans/schema";
+import { createPhotosTables } from "./photos/schema";
 import { createSpotifyTables } from "./spotify/schema";
 
 fs.mkdirSync(path.dirname(config.DB_PATH), { recursive: true });
@@ -59,6 +60,7 @@ createExpenseTables(db);
 createGmailTables(db);
 createTelegramTables(db);
 createPlansTables(db);
+createPhotosTables(db);
 
 // A run still marked 'running' at startup was cut off by a crash or restart.
 db.prepare(

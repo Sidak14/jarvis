@@ -5,6 +5,7 @@ import { dashboardAccess } from "../access";
 import { config } from "../config";
 import { db } from "../db";
 import { esc, layout } from "../html";
+import { photosPageHtml } from "../photos/status";
 import { loadAllowlist } from "./allowlist";
 import { calendarAuth } from "./index";
 import { plansBody, type WouldRow } from "./page";
@@ -59,6 +60,7 @@ plansRoutes.get("/", dashboardAccess, (c) => {
         dryRun: config.PLANS_DRY_RUN,
         would,
         statusHtml: plansSection(db),
+        photosHtml: photosPageHtml(db, allPlans(db, { includeArchived: true })),
         chatsLine: config.PLANS_ALL_CHATS
           ? "All chats mode is on."
           : `Allowlist: ${allow.chats.map((x) => esc(x.name)).join(", ") || "empty (data/plans-chats.json)"}. Plus DMs with members of those groups.`,
