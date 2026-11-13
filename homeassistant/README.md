@@ -68,3 +68,9 @@ ESPHome for that lives in its own venv, `~/homeassistant/esphome/venv` (ESPHome 
 If the opener loses Wi-Fi it opens a hotspot named `athom-garage-door-f99f26` (no password) with a setup page at 192.168.4.1.
 
 **Home Assistant venv note:** `aioesphomeapi==46.25.0` and `bleak-esphome==4.0.0` were installed by hand into the Home Assistant venv without touching cryptography (on an Intel Mac `aioesphomeapi` caps `cryptography<49` but Home Assistant pins 50.0.2). `uv pip check` warns about that; it is expected. If an upgrade stops the esphome integration loading, redo it for the version in `homeassistant/components/esphome/manifest.json`.
+
+## Dahua NVR and cameras (ONVIF)
+Dahua NVR at 192.168.4.92 (web page on port 80, RTSP 554, Dahua protocol 37777), added through Home Assistant's built-in **ONVIF** integration on **port 80** with a dedicated view-only user (`homeassistant`; its password lives only in Home Assistant's `.storage`, never in git). Six cameras: `camera.dahua_mediaprofile_channel1_substream1` ... `channel6_substream1`, plus per-channel motion sensors (`binary_sensor.dahua_motion_alarm_N`, `cell_motion_detection_N`).
+ONVIF in Home Assistant only accepts **H.264**, so each channel's **Sub Stream** is set to H.264 on the NVR (main streams and recordings are untouched). If a camera's sub-stream is changed back to H.265 it drops out; fix the NVR setting, then reload the ONVIF entry (Settings > Devices & Services > ONVIF > Reload).
+Live video works without ffmpeg (HLS via PyAV); the HLS playlists are gzip-compressed, so test with `curl --compressed`.
+Known issues: the NVR's clock/time zone was wrong (about 12 minutes slow and on a no-daylight-saving zone), set the time zone and NTP on the NVR. Entities not to touch: `button.dahua_reboot`, `button.dahua_set_system_date_and_time`, and the per-channel IR lamp / wiper / autofocus switches.
