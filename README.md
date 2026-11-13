@@ -198,6 +198,54 @@ Jarvis talks to you on Telegram. No LLM: every reply is deterministic code. Code
   service that expects a ping, such as a free Healthchecks.io check: the `heartbeat` job would request
   its ping URL every 5 minutes, and Healthchecks emails or texts you when the pings stop.
 
+## Plans (Beeper chats -> plans.md -> Telegram -> Google Calendar)
+
+Reads chats through Beeper Server's local API (**read-only**, `@beeper/desktop-api`), finds plans
+with Haiku, tracks them in `data/plans.md`, pings you on Telegram and, for plans you have committed
+to, adds them to your Google Calendar. `/plans` shows everything.
+
+- **Safe by default:** `PLANS_DRY_RUN=true` does everything except touch the calendar or send pings;
+  what it WOULD do is logged and shown on `/plans`. Flip it to `false` after a few days of checking.
+- **Setup:** Beeper Server (headless; Desktop needs macOS 13+, this Mac is on 12) signed in and set to
+  start at login (see "Beeper Server on this Mac" below), token -> `BEEPER_ACCESS_TOKEN` in `.env`. Run `npm run build && npm run chats`
+  to list your chats, then write `data/plans-chats.json`:
+  `{ "chats": [ { "id": "<chat id>", "name": "Footy boys" } ] }`. Add
+  `https://<PUBLIC_HOST>/calendar/callback` as a redirect URI in Google Cloud, enable the Google
+  Calendar API, then open `/calendar/login` and tick both permissions. Restart.
+- **Instagram only:** `ALLOWED_BRIDGES` in `settings.ts` limits reading to Instagram. WhatsApp, Telegram, Slack and the rest are never listed or read (a test checks this and that only GET requests are sent). The token is the Server's read+write login token (the headless Server cannot grant a read-only one), so "read-only" is enforced by the code, not the token.
+- **What is read:** allowlisted chats (groups or DMs), plus DMs with anyone in an allowlisted group.
+  `PLANS_ALL_CHATS=true` reads every chat on an allowed network. A DM only goes to the model if a cheap code check matches
+  (time/date/day words, "keen", event words) or the sender is in a chat with an open plan in the next
+  14 days. First start: only messages from then on (`PLANS_BACKFILL=true` also takes 7 days).
+- **How:** `plans-poll` (every 5 min) reads new text messages and reactions (local, free), then runs
+  detection on each chat that has been quiet for 3 minutes (or busy for 30). Message text is kept only
+  until its batch is processed, then erased; only ids stay. One Haiku call per batch, logged in
+  `api_usage` and under the usual spend caps. The model fills a zod schema; plain code
+  (`src/plans/apply.ts`) decides everything. Your stance only ever comes from messages YOU wrote.
+- **Stance vs status:** stance (committed / declined / unsure) is your latest explicit statement by
+  message time, across all linked chats; "what time?" never changes it. Status (proposed / confirmed /
+  cancelled) is whether it is really going ahead. A plan goes on the calendar only if committed +
+  confirmed + exact day and time + confident, and nothing overlaps (any calendar). Max 5 new events a day.
+- **Telegram (no buttons, Beeper does not show them):** each message ends with a command:
+  `/undo P-0001`, `/addback P-0001`, `/addanyway P-0001` (after a clash), `/keep` / `/remove P-0001`
+  (after you said maybe), `/plans`. One ping per plan version if you have not replied.
+- **Files:** `plans.md` is written by code only (temp file + rename, backup first, one writer at a
+  time) from the database; plans 14+ days past move to `plans-archive.md`. If the database is empty
+  and `plans.md` exists, it is loaded back.
+- **Checked live (Beeper Server 4.3.284):** pages come newest-first; `after <sortKey>` returns newer
+  messages; reactions are embedded on messages (a separate REACTION message type also exists and is
+  ignored); `isSender` / `isSelf` identify you. The reader still sorts by timestamp itself and
+  re-reads the last 3 days of each active chat to notice new reactions.
+
+### Beeper Server on this Mac
+
+The CLI (`beeper-cli`) installs a *staging* build, so the production Server is run by hand:
+unzip `beeper-server-<version>-macos-x64.zip` from Beeper's official feed into `~/beeper-prod-test/app`,
+and the LaunchAgent `~/Library/LaunchAgents/com.jarvis.beeper-server.plist` runs it with
+`HOME=~/beeper-prod-test/home` (its own data dir). It listens on 127.0.0.1:23373 only, uses about 1 GB
+of RAM and starts when you log in (auto-login must stay on). To update it, replace the app folder and
+`launchctl unload` / `load` the agent. If it is down, plans-poll just logs it and tries again.
+
 ## Notes
 
 The dashboard (`GET /`) and `/spotify` are behind Cloudflare Access. `/health` and

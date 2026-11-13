@@ -58,6 +58,31 @@ const schema = z.object({
   // alert warns before it does. Leave unset once the app is in production.
   GMAIL_CONSENT_DAYS: z.coerce.number().int().positive().optional(),
 
+  // Plans: Beeper Desktop's local API (read-only) + Google Calendar. Optional until set up.
+  BEEPER_ACCESS_TOKEN: z.string().min(10).optional(),
+  BEEPER_BASE_URL: z.url().default("http://127.0.0.1:23373"),
+  // Safe by default: read, detect and write plans.md, but never touch the calendar or send pings.
+  PLANS_DRY_RUN: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  // Read every chat instead of only the allowlist (DMs still go through the cheap prefilter).
+  PLANS_ALL_CHATS: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  // For testing: on the very first start, also read the last 7 days of allowlisted chats.
+  PLANS_BACKFILL: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  // Where Google sends the browser after the Calendar login (registered in Google Cloud).
+  // Default: https://<PUBLIC_HOST>/calendar/callback. Uses the same client id/secret as Gmail.
+  CALENDAR_REDIRECT_URI: z
+    .url()
+    .refine((u) => new URL(u).pathname === "/calendar/callback", "must end with /calendar/callback")
+    .optional(),
+
   // Google Sheets for expenses. Optional: without them expenses are stored and the sync waits.
   GOOGLE_SHEET_ID: z.string().min(1).optional(),
   // Path to the service account's JSON key (outside git, chmod 600).
@@ -85,6 +110,8 @@ export const config = {
     parsed.data.SPOTIFY_REDIRECT_URI ?? `https://${parsed.data.PUBLIC_HOST}/spotify/callback`,
   GMAIL_REDIRECT_URI:
     parsed.data.GMAIL_REDIRECT_URI ?? `https://${parsed.data.PUBLIC_HOST}/gmail/callback`,
+  CALENDAR_REDIRECT_URI:
+    parsed.data.CALENDAR_REDIRECT_URI ?? `https://${parsed.data.PUBLIC_HOST}/calendar/callback`,
 };
 
 /** Safe-to-log view of the config: secrets are masked. */
@@ -98,6 +125,7 @@ export function redactedConfig(): Record<string, string | number | boolean | und
     GMAIL_CLIENT_ID: config.GMAIL_CLIENT_ID ? "***" : undefined,
     GMAIL_CLIENT_SECRET: config.GMAIL_CLIENT_SECRET ? "***" : undefined,
     AI_GATEWAY_API_KEY: config.AI_GATEWAY_API_KEY ? "***" : undefined,
+    BEEPER_ACCESS_TOKEN: config.BEEPER_ACCESS_TOKEN ? "***" : undefined,
     TELEGRAM_BOT_TOKEN: config.TELEGRAM_BOT_TOKEN ? "***" : undefined,
     TELEGRAM_OWNER_ID: config.TELEGRAM_OWNER_ID ? "***" : undefined,
   };

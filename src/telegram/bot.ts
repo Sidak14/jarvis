@@ -44,6 +44,8 @@ export interface BotDeps {
   llm?: Llm | null;
   /** Called after /log saved an expense (sync it to the Sheet, categorise it). */
   onLogged?: () => void;
+  /** Plans: /undo, /addback, /addanyway, /keep, /remove, /plans. Returns null if `word` is not one of them. */
+  planCommand?: (word: string, arg: string) => Promise<string | null>;
   now?: () => Date;
   log?: (message: string) => void;
 }
@@ -101,6 +103,13 @@ export async function handleUpdate(deps: BotDeps, raw: unknown): Promise<void> {
 
   if (text.startsWith("/")) {
     const word = COMMAND_WORD.exec(text)?.[0].toLowerCase() ?? "";
+    if (deps.planCommand) {
+      const planReply = await deps.planCommand(word, text.slice(word.length).trim()).catch((err) => `That did not work: ${(err as Error).message.slice(0, 150)}`);
+      if (planReply !== null) {
+        if (planReply) notify(planReply); // "" = the command already sent its own message
+        return;
+      }
+    }
     if (word === "/log") {
       notify(await logCommand(deps, text.slice(word.length).trim(), now));
       return;

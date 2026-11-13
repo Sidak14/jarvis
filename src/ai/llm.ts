@@ -4,7 +4,8 @@ import { aiCapReason, recordAiCall } from "./usage";
 
 /** The only thing the rest of Jarvis knows about the LLM: text in, text out. */
 export interface Llm {
-  complete(system: string, user: string): Promise<string>;
+  /** `maxTokens` limits the length of the reply (default 500; plan detection asks for more). */
+  complete(system: string, user: string, options?: { maxTokens?: number }): Promise<string>;
 }
 
 /** The call was not made because a spend/call cap is reached. */
@@ -19,7 +20,7 @@ export function createGatewayLlm(opts: {
 }): Llm {
   const { apiKey, db, fetchFn = fetch } = opts;
   return {
-    async complete(system, user) {
+    async complete(system, user, options) {
       // The caps are enforced here, in the one place every call goes through.
       const capReason = aiCapReason(db);
       if (capReason) throw new AiCapError(capReason);
@@ -33,7 +34,7 @@ export function createGatewayLlm(opts: {
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model: AI_MODEL,
-              max_tokens: 500,
+              max_tokens: options?.maxTokens ?? 500,
               messages: [
                 { role: "system", content: system },
                 { role: "user", content: user },

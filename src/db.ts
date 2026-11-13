@@ -6,6 +6,7 @@ import { addColumnIfMissing } from "./sqlite";
 import { createTelegramTables } from "./telegram/schema";
 import { createGmailTables } from "./gmail/schema";
 import { createExpenseTables } from "./expenses/schema";
+import { createPlansTables } from "./plans/schema";
 import { createSpotifyTables } from "./spotify/schema";
 
 fs.mkdirSync(path.dirname(config.DB_PATH), { recursive: true });
@@ -57,6 +58,7 @@ createSpotifyTables(db);
 createExpenseTables(db);
 createGmailTables(db);
 createTelegramTables(db);
+createPlansTables(db);
 
 // A run still marked 'running' at startup was cut off by a crash or restart.
 db.prepare(

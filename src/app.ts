@@ -5,6 +5,8 @@ import { db } from "./db";
 import { expensesSection } from "./expenses/status";
 import { gmailRoutes } from "./gmail/routes";
 import { gmailSection } from "./gmail/status";
+import { calendarRoutes, plansRoutes } from "./plans/routes";
+import { plansSection } from "./plans/status";
 import { esc } from "./html";
 import { triggerJob } from "./runner";
 import { spotifyRoutes } from "./spotify/routes";
@@ -62,6 +64,8 @@ app.get("/health", (c) => c.json({ ok: true }));
 // Spotify dashboard, login and manual run. Local-only (see spotify/routes.ts).
 app.route("/spotify", spotifyRoutes);
 app.route("/gmail", gmailRoutes);
+app.route("/plans", plansRoutes);
+app.route("/calendar", calendarRoutes);
 
 const MAX_BODY_BYTES = 64 * 1024;
 
@@ -130,10 +134,11 @@ app.get("/", (c) => {
   .success{color:#1a7f37}.failure{color:#cf222e}.running{color:#9a6700}
 </style></head><body>
 <h1>Jarvis</h1>
-<p><a href="/spotify">Spotify dashboard</a> · <a href="/gmail">Gmail invoices</a></p>
+<p><a href="/spotify">Spotify dashboard</a> · <a href="/gmail">Gmail invoices</a> · <a href="/plans">Plans</a></p>
 ${expensesSection(db)}
 ${gmailSection(db)}
 ${telegramSection(db)}
+${plansSection(db)}
 <h2>Jobs</h2>
 <table><tr><th>Name</th><th>Schedule</th><th>Enabled</th><th>Last run (UTC)</th><th>Last status</th><th>Next run (UTC)</th></tr>
 ${jobRows || '<tr><td colspan="6">No jobs registered</td></tr>'}</table>

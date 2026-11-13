@@ -5,7 +5,7 @@ import type { Llm } from "../ai/llm";
 import { parseAmountCents } from "../expenses/parse";
 import { LOG_MAX_AGE_DAYS, LOG_MAX_AMOUNT_CENTS, TIMEZONE } from "./settings";
 import { oneLine } from "./format";
-import { dayKey, startOfDay, zoned } from "./time";
+import { dayKey, startOfDay, zonedTime, zoned } from "./time";
 
 // /log: the owner types an expense in plain words ("yesterday 45 at Star Casino"). The AI only
 // reads the words into a small typed answer (amount, merchant, date, time). CODE then checks every
@@ -93,7 +93,7 @@ export function validateLog(g: LogGuess, now: Date): LogVerdict {
   const t = g.time ? /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(g.time.trim()) : null;
   const timeDefaulted = !t;
   const minutes = t ? Number(t[1]) * 60 + Number(t[2]) : 12 * 60;
-  let occurred = new Date(midnight.getTime() + minutes * 60_000);
+  let occurred = zonedTime(year, month, day, minutes);
   if (occurred.getTime() > now.getTime()) {
     // Noon has not happened yet today: use this moment. A time you typed that is still ahead is refused.
     if (!timeDefaulted) return { ok: false, reason: "That time is in the future." };

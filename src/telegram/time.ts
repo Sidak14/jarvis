@@ -53,12 +53,24 @@ function offsetMs(d: Date): number {
   return Date.UTC(z.year, z.month - 1, z.day, z.hour, z.minute, z.second) - Math.floor(d.getTime() / 1000) * 1000;
 }
 
-/** The moment Sydney's midnight starts on this calendar day. */
-export function startOfDay(year: number, month: number, day: number): Date {
-  const naive = Date.UTC(year, month - 1, day);
+/** The exact moment it is `minutes` after midnight on this Sydney calendar day (daylight saving aware). */
+export function zonedTime(year: number, month: number, day: number, minutes: number): Date {
+  const naive = Date.UTC(year, month - 1, day, 0, minutes);
   let t = naive - offsetMs(new Date(naive));
   t = naive - offsetMs(new Date(t)); // second pass settles the daylight-saving edge
   return new Date(t);
+}
+
+/** The moment Sydney's midnight starts on this calendar day. */
+export function startOfDay(year: number, month: number, day: number): Date {
+  return zonedTime(year, month, day, 0);
+}
+
+/** "Sat 14 Nov": the Sydney day of a moment. */
+export function dayLabel(d: Date): string {
+  const month = d.toLocaleString("en-AU", { month: "short", timeZone: TIMEZONE });
+  const z = zoned(d);
+  return `${z.weekday} ${z.day} ${month}`;
 }
 
 /** Start (inclusive) and end (exclusive) of a Sydney calendar month, "YYYY-MM". */
@@ -91,8 +103,7 @@ export function nextNotifyTime(now: Date): Date {
   const z = zoned(now);
   // After 11pm: tomorrow's 9am. Before 9am: today's.
   const day = z.hour * 60 + z.minute > NOTIFY_START_MINUTE ? z.day + 1 : z.day;
-  const midnight = startOfDay(z.year, z.month, day);
-  return new Date(midnight.getTime() + NOTIFY_START_MINUTE * 60_000);
+  return zonedTime(z.year, z.month, day, NOTIFY_START_MINUTE);
 }
 
 /** "2:14pm" */

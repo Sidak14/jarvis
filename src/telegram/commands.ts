@@ -13,6 +13,7 @@ export const HELP = `Jarvis commands
 /log <day> <amount> <where> - add an expense by hand, e.g. /log yesterday 45 at Star Casino
 /recent - your last 10 expenses and their categories
 /recat <id> <number> - change a category (numbers are in /recent)
+/plans - plans found in your chats (more: /undo /addback /addanyway /keep /remove, with a plan code like P-0001)
 /help - this list
 
 I categorise expenses myself. When I'm not sure I ask: reply to my question with a number. Anything else you type is saved as Other.`;

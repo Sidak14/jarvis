@@ -21,6 +21,7 @@ import {
 } from "../telegram/settings";
 import { getState, setState } from "../telegram/state";
 import { SYNC_JOB } from "./expenses";
+import { planCommand } from "./plans";
 
 /**
  * The Telegram jobs. These run often, so they are "quiet": a run that did nothing is not
@@ -107,6 +108,7 @@ export function startTelegramBot(): () => void {
           limiter,
           onLabelled: () => triggerJob(SYNC_JOB), // push the new Category/Purpose to the Sheet soon
           llm: config.AI_GATEWAY_API_KEY ? createGatewayLlm({ apiKey: config.AI_GATEWAY_API_KEY, db }) : null,
+          planCommand,
           onLogged: () => {
             triggerJob(SYNC_JOB);
             triggerJob(CATEGORISE_JOB);
