@@ -49,3 +49,7 @@ template:
         unique_id: meross_78_reachable
         device_class: connectivity
         state: "{{ states('switch.smart_plug_backyard_2') in ['on', 'off'] }}"
+      - name: Garage opener reachable
+        unique_id: garage_opener_reachable
+        device_class: connectivity
+        state: "{{ states('binary_sensor.athom_garage_door_f99f26_status') == 'on' }}"

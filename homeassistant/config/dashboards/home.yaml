@@ -278,6 +278,23 @@ views:
           name: Consumption
         - entity: sensor.smart_plug_backyard_2_signal_strength
           name: Wi-Fi signal
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.garage_opener_reachable
+        state: 'on'
+      card:
+        type: entities
+        title: Garage door opener (read-only) · 159
+        show_header_toggle: false
+        entities:
+        - type: simple-entity
+          entity: cover.athom_garage_door_f99f26_garage_door
+          name: Garage door
+        - entity: sensor.athom_garage_door_f99f26_wifi_signal_percent
+          name: Wi-Fi signal
+        - entity: sensor.athom_garage_door_f99f26_uptime
+          name: Uptime
   - type: grid
     column_span: 3
     cards:
@@ -428,3 +445,16 @@ views:
           Not reachable on the network.
 
           MAC C4:E7:AE:1D:CF:A0'
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.garage_opener_reachable
+        state: 'off'
+      card:
+        type: markdown
+        title: Garage door opener · 159
+        content: 'Athom garage door opener at 192.168.4.159
+
+          Not reachable on the network.
+
+          MAC E0:98:06:F9:9F:26'
