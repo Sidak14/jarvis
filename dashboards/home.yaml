@@ -122,3 +122,17 @@ views:
             name: Channel 2 input
           - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_overheating
             name: Overheating
+      - type: entities
+        title: Shelly 1PM · 192.168.4.152 (34945471A117)
+        show_header_toggle: false
+        entities:
+          - entity: switch.shelly1pm_34945471a117
+            name: Relay
+          - entity: sensor.shelly1pm_34945471a117_power
+            name: Power
+          - entity: sensor.shelly1pm_34945471a117_energy
+            name: Energy
+          - entity: binary_sensor.shelly1pm_34945471a117_input
+            name: Input
+          - entity: binary_sensor.shelly1pm_34945471a117_overheating
+            name: Overheating
