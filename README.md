@@ -268,9 +268,31 @@ step, no framework, no external fonts, scripts or analytics. Times are Australia
   tagged `invoices`, `plans`, `categorising` or `log`; spend from before tagging shows as "earlier or untagged".
 - **Changing the CSS or JS:** bump `ASSET_VERSION` in `src/ui/components.ts` so browsers fetch the new file.
 
+## Fridge screen (Samsung Family Hub): `/fridge`
+
+A page for the kitchen fridge: a lock screen (number pad), then big buttons for a few lights, switched through Home Assistant.
+Dark theme, the dashboard's fonts and spacing, plain old-browser-friendly HTML/CSS/JS (`public/fridge.css`, `public/fridge.js`,
+`src/fridge/`).
+
+- **Public, so it guards itself.** The fridge can't log in to Cloudflare Access, so `/fridge` is the one page NOT behind
+  `dashboardAccess`. The code is checked **on the server** (`src/fridge/auth.ts`); the lights can only be read or switched with a
+  live session cookie. The lock screen is only a front. Other `Host` names get 403.
+- **The code** is `FRIDGE_CODE` in `.env` (exactly 7 keys: digits, `*` or `#`), never in the repo. Unset = `/fridge` is off (404).
+  The **last 7 keys** count, so after a slip you keep typing. Every key past the 7th is a guess, so guesses are rate limited:
+  30 per 5 minutes per client (then a 5 minute lockout), 200 per 10 minutes overall. Unlocked sessions end after 5 quiet minutes
+  or on "Lock".
+- **Home Assistant:** needs `HA_URL` and `HA_TOKEN` in `.env`. The token stays on the server. The page sends a light id and
+  "on"/"off"; the server looks the entity up in `src/fridge/lights.ts`. That list is the whole permission: add a light there to
+  show it, with a test. `NEVER_SWITCH` (Frontyard Top Lights, which trips the main circuit) is refused even if added by mistake.
+- **Reaching it:** `http://127.0.0.1:8080/fridge` on this Mac. The server only listens on this Mac (`HOST` in `config.ts`), so the
+  fridge uses the tunnel: `https://<PUBLIC_HOST>/fridge`. For that to open without a Cloudflare login, Cloudflare Access needs a
+  **Bypass policy for the path `/fridge`** (Zero Trust > Access > Applications). Without it the fridge gets Cloudflare's login page.
+- **The Khanda Light** uses an inline Khanda SVG in `public/fridge.js`; the others use a bulb.
+- **Changing `fridge.css` / `fridge.js`:** bump `FRIDGE_ASSET_VERSION` in `src/fridge/page.ts`.
+
 ## Notes
 
-The dashboard (`GET /`) and `/spotify` are behind Cloudflare Access. `/health` and
-`/webhook/*` are the only public routes; the webhook needs the bearer secret. As a second
+The dashboard (`GET /`) and `/spotify` are behind Cloudflare Access. `/health`,
+`/webhook/*` and `/fridge` (code-locked, see above) are the only public routes; the webhook needs the bearer secret. As a second
 check, tunnel requests to `/spotify` are only served if they arrive on `PUBLIC_HOST` and carry
 the `Cf-Access-Jwt-Assertion` header. That header is checked for presence only, not verified.

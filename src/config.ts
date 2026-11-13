@@ -83,6 +83,13 @@ const schema = z.object({
     .refine((u) => new URL(u).pathname === "/calendar/callback", "must end with /calendar/callback")
     .optional(),
 
+  // Home Assistant (local, on this Mac). Optional: without a token the fridge page cannot show or switch lights.
+  HA_URL: z.url().default("http://127.0.0.1:8123"),
+  HA_TOKEN: z.string().min(1).optional(),
+  // The kitchen fridge screen (/fridge). Its unlock code: exactly 7 keys, digits or * or #. Optional: without it
+  // /fridge is off (404). Keep it in .env, never in the code.
+  FRIDGE_CODE: z.string().regex(/^[0-9*#]{7}$/, "must be exactly 7 keys: digits, * or #").optional(),
+
   // Google Sheets for expenses. Optional: without them expenses are stored and the sync waits.
   GOOGLE_SHEET_ID: z.string().min(1).optional(),
   // Path to the service account's JSON key (outside git, chmod 600).
@@ -128,5 +135,7 @@ export function redactedConfig(): Record<string, string | number | boolean | und
     BEEPER_ACCESS_TOKEN: config.BEEPER_ACCESS_TOKEN ? "***" : undefined,
     TELEGRAM_BOT_TOKEN: config.TELEGRAM_BOT_TOKEN ? "***" : undefined,
     TELEGRAM_OWNER_ID: config.TELEGRAM_OWNER_ID ? "***" : undefined,
+    HA_TOKEN: config.HA_TOKEN ? "***" : undefined,
+    FRIDGE_CODE: config.FRIDGE_CODE ? "***" : undefined,
   };
 }

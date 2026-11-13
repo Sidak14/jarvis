@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { config } from "./config";
 import { db } from "./db";
+import { fridgeRoutes } from "./fridge/routes";
 import { gmailRoutes } from "./gmail/routes";
 import { calendarRoutes, plansRoutes } from "./plans/routes";
 import { triggerJob } from "./runner";
@@ -37,6 +38,8 @@ app.route("/spotify", spotifyRoutes);
 app.route("/gmail", gmailRoutes);
 app.route("/plans", plansRoutes);
 app.route("/calendar", calendarRoutes);
+// The kitchen fridge screen. Public (the fridge can't log in), so it guards itself with a code (see fridge/routes.ts).
+app.route("/fridge", fridgeRoutes);
 // Overview (/), /expenses, /jobs and the two dashboard asset files (src/ui/routes.ts).
 app.route("/", uiRoutes);
 
