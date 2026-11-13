@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.homeassistant.core</string>
+
+  <!-- Runs as mahendra, not root. Remove this key if you install it as a per-user LaunchAgent instead. -->
+  <key>UserName</key>
+  <string>mahendra</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/mahendra/homeassistant/venv/bin/hass</string>
+    <string>-c</string>
+    <string>/Users/mahendra/homeassistant/config</string>
+    <string>--log-file</string>
+    <string>/Users/mahendra/homeassistant/logs/home-assistant.log</string>
+    <string>--log-rotate-days</string>
+    <string>7</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/mahendra/homeassistant</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Users/mahendra</string>
+    <key>PATH</key>
+    <string>/Users/mahendra/homeassistant/venv/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>LANG</key>
+    <string>en_AU.UTF-8</string>
+    <key>UV_CACHE_DIR</key>
+    <string>/Users/mahendra/homeassistant/.uv-cache</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/mahendra/homeassistant/logs/stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/mahendra/homeassistant/logs/stderr.log</string>
+</dict>
+</plist>

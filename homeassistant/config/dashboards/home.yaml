@@ -20,7 +20,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_155_reachable
-                state: on
+                state: 'on'
             card:
               type: entities
               title: 'Chandelier + Chandelier Down Lights · 155'
@@ -48,7 +48,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_153_reachable
-                state: on
+                state: 'on'
             card:
               type: entities
               title: 'Side Garage + Garage · 153'
@@ -76,7 +76,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_156_reachable
-                state: on
+                state: 'on'
             card:
               type: entities
               title: 'Khanda Light + Frontyard Top Lights · 156'
@@ -106,7 +106,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_158_reachable
-                state: on
+                state: 'on'
             card:
               type: entities
               title: 'Side Lights + Entrance Lights · 158'
@@ -134,7 +134,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_157_reachable
-                state: on
+                state: 'on'
             card:
               type: entities
               title: 'Driveway · 157'
@@ -154,7 +154,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_154_reachable
-                state: on
+                state: 'on'
             card:
               type: entities
               title: 'Frontyard Bottom Lights · 154'
@@ -174,7 +174,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_152_reachable
-                state: on
+                state: 'on'
             card:
               type: entities
               title: 'Butler''s Pantry · 152'
@@ -201,7 +201,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_155_reachable
-                state: off
+                state: 'off'
             card:
               type: markdown
               title: 'Chandelier + Chandelier Down Lights · 155'
@@ -213,7 +213,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_153_reachable
-                state: off
+                state: 'off'
             card:
               type: markdown
               title: 'Side Garage + Garage · 153'
@@ -225,7 +225,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_156_reachable
-                state: off
+                state: 'off'
             card:
               type: markdown
               title: 'Khanda Light + Frontyard Top Lights · 156'
@@ -237,7 +237,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_158_reachable
-                state: off
+                state: 'off'
             card:
               type: markdown
               title: 'Side Lights + Entrance Lights · 158'
@@ -249,7 +249,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_157_reachable
-                state: off
+                state: 'off'
             card:
               type: markdown
               title: 'Driveway · 157'
@@ -261,7 +261,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_154_reachable
-                state: off
+                state: 'off'
             card:
               type: markdown
               title: 'Frontyard Bottom Lights · 154'
@@ -273,7 +273,7 @@ views:
             conditions:
               - condition: state
                 entity: binary_sensor.shelly_152_reachable
-                state: off
+                state: 'off'
             card:
               type: markdown
               title: 'Butler''s Pantry · 152'
