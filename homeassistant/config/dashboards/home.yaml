@@ -1,283 +1,395 @@
-# Home dashboard (YAML mode). Top: Shellys that are reachable. Bottom: the ones that are not.
-# Reachability comes from binary_sensor.shelly_<ip>_reachable (packages/shelly_status.yaml).
+# Home dashboard (YAML mode). Top: devices that are reachable. Bottom: the ones that are not.
+# Reachability comes from binary_sensor.shelly_<ip>_reachable and binary_sensor.meross_<ip>_reachable (packages/shelly_status.yaml).
 # switch.shellyswitch25_c8c9a37a653a_channel_2 (Frontyard Top Lights) trips the main circuit if turned on: its entity is disabled and shown read-only here.
 title: Home
 views:
-  - title: Home
-    path: home
-    icon: mdi:home
-    type: sections
-    max_columns: 3
-    sections:
-      - type: grid
-        column_span: 3
-        cards:
-          - type: heading
-            heading: Connected
-            heading_style: title
-            icon: mdi:wifi
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_155_reachable
-                state: 'on'
-            card:
-              type: entities
-              title: 'Chandelier + Chandelier Down Lights · 155'
-              show_header_toggle: false
-              entities:
-                - entity: switch.shellyswitch25_c8c9a375a239_channel_1
-                  name: 'Chandelier'
-                - entity: sensor.shellyswitch25_c8c9a375a239_channel_1_power
-                  name: 'Chandelier power'
-                - entity: sensor.shellyswitch25_c8c9a375a239_channel_1_energy
-                  name: 'Chandelier energy'
-                - entity: binary_sensor.shellyswitch25_c8c9a375a239_channel_1_input
-                  name: 'Chandelier input'
-                - entity: switch.shellyswitch25_c8c9a375a239_channel_2
-                  name: 'Chandelier Down Lights'
-                - entity: sensor.shellyswitch25_c8c9a375a239_channel_2_power
-                  name: 'Chandelier Down Lights power'
-                - entity: sensor.shellyswitch25_c8c9a375a239_channel_2_energy
-                  name: 'Chandelier Down Lights energy'
-                - entity: binary_sensor.shellyswitch25_c8c9a375a239_channel_2_input
-                  name: 'Chandelier Down Lights input'
-                - entity: binary_sensor.shellyswitch25_c8c9a375a239_overheating
-                  name: Overheating
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_153_reachable
-                state: 'on'
-            card:
-              type: entities
-              title: 'Side Garage + Garage · 153'
-              show_header_toggle: false
-              entities:
-                - entity: switch.shellyswitch25_c45bbe6bd1ee_channel_1
-                  name: 'Side Garage'
-                - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_1_power
-                  name: 'Side Garage power'
-                - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_1_energy
-                  name: 'Side Garage energy'
-                - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_channel_1_input
-                  name: 'Side Garage input'
-                - entity: switch.shellyswitch25_c45bbe6bd1ee_channel_2
-                  name: 'Garage'
-                - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_2_power
-                  name: 'Garage power'
-                - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_2_energy
-                  name: 'Garage energy'
-                - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_channel_2_input
-                  name: 'Garage input'
-                - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_overheating
-                  name: Overheating
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_156_reachable
-                state: 'on'
-            card:
-              type: entities
-              title: 'Khanda Light + Frontyard Top Lights · 156'
-              show_header_toggle: false
-              entities:
-                - entity: switch.shellyswitch25_c8c9a37a653a_channel_1
-                  name: 'Khanda Light'
-                - entity: sensor.shellyswitch25_c8c9a37a653a_channel_1_power
-                  name: 'Khanda Light power'
-                - entity: sensor.shellyswitch25_c8c9a37a653a_channel_1_energy
-                  name: 'Khanda Light energy'
-                - entity: binary_sensor.shellyswitch25_c8c9a37a653a_channel_1_input
-                  name: 'Khanda Light input'
-                - type: text
-                  name: 'Frontyard Top Lights'
-                  text: LOCKED (trips the circuit)
-                  icon: mdi:lock
-                - entity: sensor.shellyswitch25_c8c9a37a653a_channel_2_power
-                  name: 'Frontyard Top Lights power'
-                - entity: sensor.shellyswitch25_c8c9a37a653a_channel_2_energy
-                  name: 'Frontyard Top Lights energy'
-                - entity: binary_sensor.shellyswitch25_c8c9a37a653a_channel_2_input
-                  name: 'Frontyard Top Lights input'
-                - entity: binary_sensor.shellyswitch25_c8c9a37a653a_overheating
-                  name: Overheating
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_158_reachable
-                state: 'on'
-            card:
-              type: entities
-              title: 'Side Lights + Entrance Lights · 158'
-              show_header_toggle: false
-              entities:
-                - entity: switch.shellyswitch25_c8c9a375c8b2_channel_1
-                  name: 'Side Lights'
-                - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_1_power
-                  name: 'Side Lights power'
-                - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_1_energy
-                  name: 'Side Lights energy'
-                - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_channel_1_input
-                  name: 'Side Lights input'
-                - entity: switch.shellyswitch25_c8c9a375c8b2_channel_2
-                  name: 'Entrance Lights'
-                - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_2_power
-                  name: 'Entrance Lights power'
-                - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_2_energy
-                  name: 'Entrance Lights energy'
-                - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_channel_2_input
-                  name: 'Entrance Lights input'
-                - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_overheating
-                  name: Overheating
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_157_reachable
-                state: 'on'
-            card:
-              type: entities
-              title: 'Driveway · 157'
-              show_header_toggle: false
-              entities:
-                - entity: switch.shelly1pm_34945471ad19
-                  name: 'Driveway'
-                - entity: sensor.shelly1pm_34945471ad19_power
-                  name: 'Driveway power'
-                - entity: sensor.shelly1pm_34945471ad19_energy
-                  name: 'Driveway energy'
-                - entity: binary_sensor.shelly1pm_34945471ad19_input
-                  name: 'Driveway input'
-                - entity: binary_sensor.shelly1pm_34945471ad19_overheating
-                  name: Overheating
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_154_reachable
-                state: 'on'
-            card:
-              type: entities
-              title: 'Frontyard Bottom Lights · 154'
-              show_header_toggle: false
-              entities:
-                - entity: switch.shelly1pm_34945472b313
-                  name: 'Frontyard Bottom Lights'
-                - entity: sensor.shelly1pm_34945472b313_power
-                  name: 'Frontyard Bottom Lights power'
-                - entity: sensor.shelly1pm_34945472b313_energy
-                  name: 'Frontyard Bottom Lights energy'
-                - entity: binary_sensor.shelly1pm_34945472b313_input
-                  name: 'Frontyard Bottom Lights input'
-                - entity: binary_sensor.shelly1pm_34945472b313_overheating
-                  name: Overheating
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_152_reachable
-                state: 'on'
-            card:
-              type: entities
-              title: 'Butler''s Pantry · 152'
-              show_header_toggle: false
-              entities:
-                - entity: switch.shelly1pm_34945471a117
-                  name: 'Butler''s Pantry'
-                - entity: sensor.shelly1pm_34945471a117_power
-                  name: 'Butler''s Pantry power'
-                - entity: sensor.shelly1pm_34945471a117_energy
-                  name: 'Butler''s Pantry energy'
-                - entity: binary_sensor.shelly1pm_34945471a117_input
-                  name: 'Butler''s Pantry input'
-                - entity: binary_sensor.shelly1pm_34945471a117_overheating
-                  name: Overheating
-      - type: grid
-        column_span: 3
-        cards:
-          - type: heading
-            heading: Unreachable
-            heading_style: title
-            icon: mdi:wifi-off
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_155_reachable
-                state: 'off'
-            card:
-              type: markdown
-              title: 'Chandelier + Chandelier Down Lights · 155'
-              content: |-
-                Shelly 2.5 at 192.168.4.155
-                Not reachable on the network.
-                MAC C8:C9:A3:75:A2:39
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_153_reachable
-                state: 'off'
-            card:
-              type: markdown
-              title: 'Side Garage + Garage · 153'
-              content: |-
-                Shelly 2.5 at 192.168.4.153
-                Not reachable on the network.
-                MAC C4:5B:BE:6B:D1:EE
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_156_reachable
-                state: 'off'
-            card:
-              type: markdown
-              title: 'Khanda Light + Frontyard Top Lights · 156'
-              content: |-
-                Shelly 2.5 at 192.168.4.156
-                Not reachable on the network.
-                MAC C8:C9:A3:7A:65:3A
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_158_reachable
-                state: 'off'
-            card:
-              type: markdown
-              title: 'Side Lights + Entrance Lights · 158'
-              content: |-
-                Shelly 2.5 at 192.168.4.158
-                Not reachable on the network.
-                MAC C8:C9:A3:75:C8:B2
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_157_reachable
-                state: 'off'
-            card:
-              type: markdown
-              title: 'Driveway · 157'
-              content: |-
-                Shelly 1PM at 192.168.4.157
-                Not reachable on the network.
-                MAC 34:94:54:71:AD:19
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_154_reachable
-                state: 'off'
-            card:
-              type: markdown
-              title: 'Frontyard Bottom Lights · 154'
-              content: |-
-                Shelly 1PM at 192.168.4.154
-                Not reachable on the network.
-                MAC 34:94:54:72:B3:13
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: binary_sensor.shelly_152_reachable
-                state: 'off'
-            card:
-              type: markdown
-              title: 'Butler''s Pantry · 152'
-              content: |-
-                Shelly 1PM at 192.168.4.152
-                Not reachable on the network.
-                MAC 34:94:54:71:A1:17
+- title: Home
+  path: home
+  icon: mdi:home
+  type: sections
+  max_columns: 3
+  sections:
+  - type: grid
+    column_span: 3
+    cards:
+    - type: heading
+      heading: Connected
+      heading_style: title
+      icon: mdi:wifi
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_155_reachable
+        state: 'on'
+      card:
+        type: entities
+        title: Chandelier + Chandelier Down Lights · 155
+        show_header_toggle: false
+        entities:
+        - entity: switch.shellyswitch25_c8c9a375a239_channel_1
+          name: Chandelier
+        - entity: sensor.shellyswitch25_c8c9a375a239_channel_1_power
+          name: Chandelier power
+        - entity: sensor.shellyswitch25_c8c9a375a239_channel_1_energy
+          name: Chandelier energy
+        - entity: binary_sensor.shellyswitch25_c8c9a375a239_channel_1_input
+          name: Chandelier input
+        - entity: switch.shellyswitch25_c8c9a375a239_channel_2
+          name: Chandelier Down Lights
+        - entity: sensor.shellyswitch25_c8c9a375a239_channel_2_power
+          name: Chandelier Down Lights power
+        - entity: sensor.shellyswitch25_c8c9a375a239_channel_2_energy
+          name: Chandelier Down Lights energy
+        - entity: binary_sensor.shellyswitch25_c8c9a375a239_channel_2_input
+          name: Chandelier Down Lights input
+        - entity: binary_sensor.shellyswitch25_c8c9a375a239_overheating
+          name: Overheating
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_153_reachable
+        state: 'on'
+      card:
+        type: entities
+        title: Side Garage + Garage · 153
+        show_header_toggle: false
+        entities:
+        - entity: switch.shellyswitch25_c45bbe6bd1ee_channel_1
+          name: Side Garage
+        - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_1_power
+          name: Side Garage power
+        - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_1_energy
+          name: Side Garage energy
+        - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_channel_1_input
+          name: Side Garage input
+        - entity: switch.shellyswitch25_c45bbe6bd1ee_channel_2
+          name: Garage
+        - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_2_power
+          name: Garage power
+        - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_2_energy
+          name: Garage energy
+        - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_channel_2_input
+          name: Garage input
+        - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_overheating
+          name: Overheating
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_156_reachable
+        state: 'on'
+      card:
+        type: entities
+        title: Khanda Light + Frontyard Top Lights · 156
+        show_header_toggle: false
+        entities:
+        - entity: switch.shellyswitch25_c8c9a37a653a_channel_1
+          name: Khanda Light
+        - entity: sensor.shellyswitch25_c8c9a37a653a_channel_1_power
+          name: Khanda Light power
+        - entity: sensor.shellyswitch25_c8c9a37a653a_channel_1_energy
+          name: Khanda Light energy
+        - entity: binary_sensor.shellyswitch25_c8c9a37a653a_channel_1_input
+          name: Khanda Light input
+        - type: text
+          name: Frontyard Top Lights
+          text: LOCKED (trips the circuit)
+          icon: mdi:lock
+        - entity: sensor.shellyswitch25_c8c9a37a653a_channel_2_power
+          name: Frontyard Top Lights power
+        - entity: sensor.shellyswitch25_c8c9a37a653a_channel_2_energy
+          name: Frontyard Top Lights energy
+        - entity: binary_sensor.shellyswitch25_c8c9a37a653a_channel_2_input
+          name: Frontyard Top Lights input
+        - entity: binary_sensor.shellyswitch25_c8c9a37a653a_overheating
+          name: Overheating
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_158_reachable
+        state: 'on'
+      card:
+        type: entities
+        title: Side Lights + Entrance Lights · 158
+        show_header_toggle: false
+        entities:
+        - entity: switch.shellyswitch25_c8c9a375c8b2_channel_1
+          name: Side Lights
+        - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_1_power
+          name: Side Lights power
+        - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_1_energy
+          name: Side Lights energy
+        - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_channel_1_input
+          name: Side Lights input
+        - entity: switch.shellyswitch25_c8c9a375c8b2_channel_2
+          name: Entrance Lights
+        - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_2_power
+          name: Entrance Lights power
+        - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_2_energy
+          name: Entrance Lights energy
+        - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_channel_2_input
+          name: Entrance Lights input
+        - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_overheating
+          name: Overheating
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_157_reachable
+        state: 'on'
+      card:
+        type: entities
+        title: Driveway · 157
+        show_header_toggle: false
+        entities:
+        - entity: switch.shelly1pm_34945471ad19
+          name: Driveway
+        - entity: sensor.shelly1pm_34945471ad19_power
+          name: Driveway power
+        - entity: sensor.shelly1pm_34945471ad19_energy
+          name: Driveway energy
+        - entity: binary_sensor.shelly1pm_34945471ad19_input
+          name: Driveway input
+        - entity: binary_sensor.shelly1pm_34945471ad19_overheating
+          name: Overheating
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_154_reachable
+        state: 'on'
+      card:
+        type: entities
+        title: Frontyard Bottom Lights · 154
+        show_header_toggle: false
+        entities:
+        - entity: switch.shelly1pm_34945472b313
+          name: Frontyard Bottom Lights
+        - entity: sensor.shelly1pm_34945472b313_power
+          name: Frontyard Bottom Lights power
+        - entity: sensor.shelly1pm_34945472b313_energy
+          name: Frontyard Bottom Lights energy
+        - entity: binary_sensor.shelly1pm_34945472b313_input
+          name: Frontyard Bottom Lights input
+        - entity: binary_sensor.shelly1pm_34945472b313_overheating
+          name: Overheating
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_152_reachable
+        state: 'on'
+      card:
+        type: entities
+        title: Butler's Pantry · 152
+        show_header_toggle: false
+        entities:
+        - entity: switch.shelly1pm_34945471a117
+          name: Butler's Pantry
+        - entity: sensor.shelly1pm_34945471a117_power
+          name: Butler's Pantry power
+        - entity: sensor.shelly1pm_34945471a117_energy
+          name: Butler's Pantry energy
+        - entity: binary_sensor.shelly1pm_34945471a117_input
+          name: Butler's Pantry input
+        - entity: binary_sensor.shelly1pm_34945471a117_overheating
+          name: Overheating
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.meross_28_reachable
+        state: 'on'
+      card:
+        type: entities
+        title: Smart Plug backyard 1 · 28
+        show_header_toggle: false
+        entities:
+        - entity: switch.smart_plug_backyard_1
+          name: Smart Plug backyard 1
+        - entity: sensor.smart_plug_backyard_1_power
+          name: Power
+        - entity: sensor.smart_plug_backyard_1_voltage
+          name: Voltage
+        - entity: sensor.smart_plug_backyard_1_current
+          name: Current
+        - entity: sensor.smart_plug_backyard_1_consumption
+          name: Consumption
+        - entity: sensor.smart_plug_backyard_1_signal_strength
+          name: Wi-Fi signal
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.meross_20_reachable
+        state: 'on'
+      card:
+        type: entities
+        title: Water Fountain · 20
+        show_header_toggle: false
+        entities:
+        - entity: switch.water_fountain
+          name: Water Fountain
+        - entity: sensor.water_fountain_power
+          name: Power
+        - entity: sensor.water_fountain_voltage
+          name: Voltage
+        - entity: sensor.water_fountain_current
+          name: Current
+        - entity: sensor.water_fountain_consumption
+          name: Consumption
+        - entity: sensor.water_fountain_signal_strength
+          name: Wi-Fi signal
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.meross_25_reachable
+        state: 'on'
+      card:
+        type: entities
+        title: Smart Plug · 25
+        show_header_toggle: false
+        entities:
+        - entity: switch.smart_plug
+          name: Smart Plug
+        - entity: sensor.smart_plug_power
+          name: Power
+        - entity: sensor.smart_plug_voltage
+          name: Voltage
+        - entity: sensor.smart_plug_current
+          name: Current
+        - entity: sensor.smart_plug_consumption
+          name: Consumption
+        - entity: sensor.smart_plug_signal_strength
+          name: Wi-Fi signal
+  - type: grid
+    column_span: 3
+    cards:
+    - type: heading
+      heading: Unreachable
+      heading_style: title
+      icon: mdi:wifi-off
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_155_reachable
+        state: 'off'
+      card:
+        type: markdown
+        title: Chandelier + Chandelier Down Lights · 155
+        content: 'Shelly 2.5 at 192.168.4.155
+
+          Not reachable on the network.
+
+          MAC C8:C9:A3:75:A2:39'
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_153_reachable
+        state: 'off'
+      card:
+        type: markdown
+        title: Side Garage + Garage · 153
+        content: 'Shelly 2.5 at 192.168.4.153
+
+          Not reachable on the network.
+
+          MAC C4:5B:BE:6B:D1:EE'
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_156_reachable
+        state: 'off'
+      card:
+        type: markdown
+        title: Khanda Light + Frontyard Top Lights · 156
+        content: 'Shelly 2.5 at 192.168.4.156
+
+          Not reachable on the network.
+
+          MAC C8:C9:A3:7A:65:3A'
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_158_reachable
+        state: 'off'
+      card:
+        type: markdown
+        title: Side Lights + Entrance Lights · 158
+        content: 'Shelly 2.5 at 192.168.4.158
+
+          Not reachable on the network.
+
+          MAC C8:C9:A3:75:C8:B2'
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_157_reachable
+        state: 'off'
+      card:
+        type: markdown
+        title: Driveway · 157
+        content: 'Shelly 1PM at 192.168.4.157
+
+          Not reachable on the network.
+
+          MAC 34:94:54:71:AD:19'
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_154_reachable
+        state: 'off'
+      card:
+        type: markdown
+        title: Frontyard Bottom Lights · 154
+        content: 'Shelly 1PM at 192.168.4.154
+
+          Not reachable on the network.
+
+          MAC 34:94:54:72:B3:13'
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.shelly_152_reachable
+        state: 'off'
+      card:
+        type: markdown
+        title: Butler's Pantry · 152
+        content: 'Shelly 1PM at 192.168.4.152
+
+          Not reachable on the network.
+
+          MAC 34:94:54:71:A1:17'
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.meross_28_reachable
+        state: 'off'
+      card:
+        type: markdown
+        title: Smart Plug backyard 1 · 28
+        content: 'Meross MSS315 at 192.168.4.28
+
+          Not reachable on the network.
+
+          MAC C4:E7:AE:1D:D2:D2'
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.meross_20_reachable
+        state: 'off'
+      card:
+        type: markdown
+        title: Water Fountain · 20
+        content: 'Meross MSS315 at 192.168.4.20
+
+          Not reachable on the network.
+
+          MAC C4:E7:AE:1D:D3:67'
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.meross_25_reachable
+        state: 'off'
+      card:
+        type: markdown
+        title: Smart Plug · 25
+        content: 'Meross MSS310 at 192.168.4.25
+
+          Not reachable on the network.
+
+          MAC C4:E7:AE:12:13:0B'

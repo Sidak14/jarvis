@@ -55,7 +55,8 @@ Do not re-enable it, do not use it in automations or scenes. The wall switch is 
 ## Meross plugs (custom integration)
 Installed by hand, not through HACS: `config/custom_components/meross_lan/`, **version 6.0.1** (from https://github.com/krahabb/meross_lan/releases/tag/v6.0.1). It is third-party code, so it is git-ignored and pinned here.
 To reinstall or upgrade: download the release source zip, replace the folder, `./ha.sh check-config`, `./ha.sh restart`, and read the issue tracker first (6.0.0 broke many plugs; 6.0.1 fixed most; some models still drop offline for ~30 s every so often, issue #743).
-The plugs are the four `C4:E7:AE:*` devices at 192.168.4.20, .25, .28, .78 (give them DHCP reservations in eero).
+Added through the Meross account login (profile). Plugs in Home Assistant: Water Fountain (MSS315, .20), Smart Plug (MSS310, .25), Smart Plug backyard 1 (MSS315, .28). A fourth Meross-prefixed device at .78 (C4:E7:AE:1D:CF:A0) is not in the account/HA and was offline.
+Entity ids were renamed after the devices (`switch.water_fountain`, `sensor.water_fountain_power`, ...). `light.*_dnd` is the plug's status LED, not a lamp.
 
 ## ESPHome (Athom garage door opener)
 The athom-garage-door-f99f26 opener is at 192.168.4.159 (MAC E0:98:06:F9:9F:26, ESPHome 2023.11.6, encrypted API on port 6053).
