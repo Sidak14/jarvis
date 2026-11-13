@@ -16,3 +16,4 @@ deps/
 tts/
 .DS_Store
 .ha_run.lock
+.cache/
