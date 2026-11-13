@@ -56,3 +56,8 @@ Do not re-enable it, do not use it in automations or scenes. The wall switch is 
 Installed by hand, not through HACS: `config/custom_components/meross_lan/`, **version 6.0.1** (from https://github.com/krahabb/meross_lan/releases/tag/v6.0.1). It is third-party code, so it is git-ignored and pinned here.
 To reinstall or upgrade: download the release source zip, replace the folder, `./ha.sh check-config`, `./ha.sh restart`, and read the issue tracker first (6.0.0 broke many plugs; 6.0.1 fixed most; some models still drop offline for ~30 s every so often, issue #743).
 The plugs are the four `C4:E7:AE:*` devices at 192.168.4.20, .25, .28, .78 (give them DHCP reservations in eero).
+
+## ESPHome (Athom garage door opener)
+The athom-garage-door-f99f26 opener is at 192.168.4.159 (MAC E0:98:06:F9:9F:26, ESPHome 2023.11.6, encrypted API on port 6053).
+**Workaround in the venv (not in git):** on an Intel Mac, `aioesphomeapi` caps `cryptography<49` but Home Assistant 2026.11 pins `cryptography==50.0.2`, so Home Assistant's own installer refuses it. I installed `aioesphomeapi==46.25.0` and `bleak-esphome==4.0.0` by hand into the venv without touching cryptography (`uv pip install --no-deps`). `uv pip check` will warn about this mismatch; it is expected. If Home Assistant is upgraded and the esphome integration stops loading, redo this for the new `aioesphomeapi` version listed in `venv/.../homeassistant/components/esphome/manifest.json`.
+**Never operate the garage door while testing.** Only add it; don't call cover services without asking.
