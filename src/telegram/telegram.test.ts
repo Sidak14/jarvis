@@ -314,7 +314,7 @@ describe("bot", () => {
   });
 
   it("each number picks its category, in the order shown", async () => {
-    const names = ["Food and drinks", "Groceries", "Transport", "Fun", "Bills", "Other"];
+    const names = ["Food and drinks", "Groceries", "Transport", "Fun", "Bills", "Jarvis and tech", "Other"];
     for (let i = 0; i < names.length; i++) {
       const id = addExpense(db, { at: ago(2 * HOUR) });
       attachQuestionMessage(db, id, 300 + i);
@@ -344,12 +344,12 @@ describe("bot", () => {
     const b = addExpense(db, { at: ago(2 * HOUR) });
     attachQuestionMessage(db, a, 100);
     attachQuestionMessage(db, b, 101);
-    await handleUpdate(deps(), text(OWNER, "7", { reply_to_message: { message_id: 100 } }));
-    await handleUpdate(deps(), text(OWNER, "9", { reply_to_message: { message_id: 101 } }));
+    await handleUpdate(deps(), text(OWNER, "8", { reply_to_message: { message_id: 100 } }));
+    await handleUpdate(deps(), text(OWNER, "10", { reply_to_message: { message_id: 101 } }));
     const rows = db.prepare(`SELECT category, answered_at FROM expenses ORDER BY id`).all() as { category: string | null; answered_at: string | null }[];
     assert.deepEqual([rows[0].category, !!rows[0].answered_at], [null, true]);
     assert.deepEqual([rows[1].category, !!rows[1].answered_at], [null, false]);
-    assert.ok(replies().some((t) => /Pick a number from 1 to 7/.test(t)));
+    assert.ok(replies().some((t) => /Pick a number from 1 to 8/.test(t)));
   });
 
   it("after the category is set, a text reply adds the note (once)", async () => {
@@ -420,7 +420,7 @@ describe("categorising expenses", () => {
     const e = { id: 1, merchant: "JARVIS TEST (delete me)", amount_cents: 1, currency: "AUD", occurred_at: "2026-11-10T02:18:00Z" };
     assert.equal(
       questionText(e, NOON),
-      "$0.01 at JARVIS TEST (delete me), 1:18pm. What was this for?\nReply with:\n1. Food and drinks\n2. Groceries\n3. Transport\n4. Fun\n5. Bills\n6. Other\n7. Skip\nAnything else you type is saved as Other, with your words as the note.",
+      "$0.01 at JARVIS TEST (delete me), 1:18pm. What was this for?\nReply with:\n1. Food and drinks\n2. Groceries\n3. Transport\n4. Fun\n5. Bills\n6. Jarvis and tech\n7. Other\n8. Skip\nAnything else you type is saved as Other, with your words as the note.",
     );
     const older = { ...e, merchant: "Cloudflare", amount_cents: 1117, currency: "USD", occurred_at: "2026-11-08T05:14:00Z" };
     assert.match(questionText(older, NOON), /^11\.17 USD at Cloudflare, Sun 8 Nov, 4:14pm\. What was this for\?/);
@@ -444,7 +444,7 @@ describe("categorising expenses", () => {
     addExpense(db, { merchant: "Pub Two", at: "2026-11-10T08:30:00Z" }); // 7:30pm, not categorised yet
     addExpense(db, { merchant: "Pub Dup", at: "2026-11-10T08:40:00Z", status: "duplicate" }); // ignored
     const id = addExpense(db, { merchant: "Uber", at: "2026-11-10T10:00:00Z" }); // 9pm
-    const e = { id, merchant: "Uber", amount_cents: 1250, currency: "AUD", occurred_at: "2026-11-10T10:00:00Z", categorise_attempts: 0 };
+    const e = { id, merchant: "Uber", amount_cents: 1250, currency: "AUD", occurred_at: "2026-11-10T10:00:00Z", received_at: "2026-11-10T10:00:00Z", categorise_attempts: 0 };
     const { user } = buildPrompt(db, e, new Date("2026-11-10T10:05:00Z"));
     assert.match(user, /Merchant: Uber/);
     const history = user.split("<same_merchant_history>")[1].split("</same_merchant_history>")[0];
@@ -544,6 +544,15 @@ describe("categorising expenses", () => {
     assert.equal(outboxRows(db).length, 1);
   });
 
+  it("an old purchase that only just arrived (a late invoice email) is still asked about", async () => {
+    replyWith = () => guess("Fun", "low");
+    const late = addExpense(db, { at: ago(5 * 24 * HOUR), received: ago(HOUR) });
+    const r = await run();
+    assert.equal(r.asked, 1);
+    assert.equal(r.gaveUp, 0);
+    assert.ok(cat(late).asked_at);
+  });
+
   it("old expenses the AI cannot place are left alone without a message", async () => {
     replyWith = () => guess("Fun", "low");
     const old = addExpense(db, { at: ago(5 * 24 * HOUR) });
@@ -558,7 +567,7 @@ describe("categorising expenses", () => {
     replyWith = () => guess("Fun", "low");
     const id = addExpense(db, { at: ago(MIN) });
     await run();
-    assert.deepEqual(applyReply(db, id, "7"), { result: "skipped" });
+    assert.deepEqual(applyReply(db, id, "8"), { result: "skipped" });
     for (let d = 1; d <= 5; d++) assert.equal((await run({ now: new Date(NOON.getTime() + d * 24 * HOUR) })).asked, 0);
     assert.equal(outboxRows(db).length, 1);
   });

@@ -167,7 +167,7 @@ Jarvis talks to you on Telegram. No LLM: every reply is deterministic code. Code
   previous 12 hours. It answers a typed JSON (`{category, confidence, reason}`, checked with zod, one
   retry); only "high" confidence and not "Other" is saved (`category_source = ai`); (3) otherwise
   you get a message straight away (no daily limit):
-  `$12.50 at Cafe, 2:14pm. What was this for?` then `1. Food and drinks ... 6. Other, 7. Skip`.
+  `$12.50 at Cafe, 2:14pm. What was this for?` then `1. Food and drinks ... 6. Jarvis and tech, 7. Other, 8. Skip`.
   Reply to it with a number; anything else is saved as Other with your words as the note. Skip means
   never ask again. `asked_at` is set as the question is queued, so an expense is asked about once, ever.
   AI errors are retried (3 times), a hit AI cap or missing AI key means asking you. Expenses older

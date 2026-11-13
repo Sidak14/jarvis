@@ -19,7 +19,7 @@ export const CONTEXT_WINDOW_MS = 12 * 60 * 60 * 1000;
 export const CONTEXT_MAX_ROWS = 30;
 /** If a merchant's last this-many categories all agree, reuse that category without asking the AI. */
 export const REPEAT_MERCHANT_MATCHES = 5;
-/** Expenses older than this are categorised quietly: if the AI is unsure we do not message about them. */
+/** Expenses that reached Jarvis longer ago than this are categorised quietly: if the AI is unsure we do not message about them. (Counted from arrival, not purchase date.) */
 export const ASK_MAX_AGE_DAYS = 2;
 
 /** The numbered answers, in the order they are shown. Skip is always the number after the last one. */
@@ -29,6 +29,7 @@ export const CATEGORIES = [
   { label: "Transport" },
   { label: "Fun" },
   { label: "Bills" },
+  { label: "Jarvis and tech" },
   { label: "Other" },
 ] as const;
 export const SKIP_NUMBER = CATEGORIES.length + 1;
