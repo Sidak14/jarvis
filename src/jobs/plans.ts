@@ -71,7 +71,7 @@ export function registerPlans(): void {
       if (ingest.allowlistError) log(ingest.allowlistError);
 
       // 3. Detect plans in chats that have gone quiet (the only step that costs money).
-      const llm = config.AI_GATEWAY_API_KEY ? createGatewayLlm({ apiKey: config.AI_GATEWAY_API_KEY, db }) : null;
+      const llm = config.AI_GATEWAY_API_KEY ? createGatewayLlm({ apiKey: config.AI_GATEWAY_API_KEY, db, feature: "plans" }) : null;
       const detection = await runDetection({ db, detector: llm ? createHaikuDetector(llm) : null, log });
 
       // 4. Calendar events and pings (or, in dry run, a record of what would happen).

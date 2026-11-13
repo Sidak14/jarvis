@@ -1,13 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { Hono } from "hono";
 import { dashboardAccess } from "../access";
-import { config } from "../config";
-import { db } from "../db";
 import { esc, layout } from "../html";
 import { runJobNow } from "../runner";
 import { spotifyAuth } from "./index";
-import { JOB_NAME, PLAY_THRESHOLD, POLL_CRON, WINDOW_DAYS } from "./settings";
-import { apiCallsToday } from "./usage";
+import { liveContext } from "../ui/context";
+import { spotifyPage } from "../ui/pages/spotify";
+import { buildSpotify } from "../ui/vm/spotify";
+import { JOB_NAME } from "./settings";
 
 export const spotifyRoutes = new Hono();
 
@@ -69,121 +69,9 @@ spotifyRoutes.post("/run", dashboardAccess, async (c) => {
 });
 
 // ---- Dashboard -------------------------------------------------------------
-interface RunRow {
-  id: number;
-  started_at: string;
-  finished_at: string | null;
-  status: string;
-  duration_ms: number | null;
-  log: string | null;
-}
-interface TrackRow {
-  track_id: string;
-  name: string;
-  artists: string;
-  last_played: string;
-  plays_in_window: number;
-  plays_total: number;
-  is_liked: number | null;
-  like_source: string | null;
-}
-
-const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-AU", { hour12: false }) : "-");
-
-function likedLabel(t: TrackRow): { text: string; cls: string } {
-  if (t.like_source === "jarvis") return { text: "Liked by Jarvis", cls: "liked" };
-  if (t.is_liked === 1) return { text: "Liked", cls: "liked" };
-  if (t.is_liked === 0) {
-    const due = t.plays_in_window > PLAY_THRESHOLD;
-    if (!due) return { text: "Not liked", cls: "" };
-    return config.SPOTIFY_DRY_RUN
-      ? { text: "Not liked (would like, dry run)", cls: "pending" }
-      : { text: "Not liked (will like next run)", cls: "pending" };
-  }
-  return { text: "Not checked yet", cls: "muted" };
-}
-
+// The page itself is built in src/ui (view-model + template); this route only reads the query string.
 spotifyRoutes.get("/", dashboardAccess, (c) => {
-  // Which run's output to show: ?run=<id>, otherwise the latest run of this job.
-  const runParam = Number(c.req.query("run"));
-  const run = (
-    Number.isInteger(runParam) && runParam > 0
-      ? db.prepare(`SELECT * FROM runs WHERE id = ? AND job = ?`).get(runParam, JOB_NAME)
-      : db.prepare(`SELECT * FROM runs WHERE job = ? ORDER BY id DESC LIMIT 1`).get(JOB_NAME)
-  ) as RunRow | undefined;
-
-  const windowStart = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  const tracks = db
-    .prepare(
-      `SELECT p.track_id,
-              MAX(p.track_name) AS name,
-              MAX(p.artists) AS artists,
-              MAX(p.played_at) AS last_played,
-              SUM(CASE WHEN p.played_at >= ? THEN 1 ELSE 0 END) AS plays_in_window,
-              COUNT(*) AS plays_total,
-              s.is_liked AS is_liked,
-              l.source AS like_source
-         FROM play_history p
-         LEFT JOIN track_status s ON s.track_id = p.track_id
-         LEFT JOIN likes l ON l.track_id = p.track_id
-        GROUP BY p.track_id
-        ORDER BY last_played DESC
-        LIMIT 50`,
-    )
-    .all(windowStart) as TrackRow[];
-
-  const connected = spotifyAuth.isConnected();
-  const connection = !spotifyAuth.isConfigured()
-    ? `<span class="error">Not configured</span> (add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to .env)`
-    : connected
-      ? `<span class="liked">Connected</span>`
-      : `<span class="error">Not connected</span> - <a href="/spotify/login">log in to Spotify</a>`;
-  const mode = config.SPOTIFY_DRY_RUN
-    ? `<strong class="pending">DRY RUN</strong> (logs what it would like, likes nothing)`
-    : `<strong class="liked">LIVE</strong> (really likes songs)`;
-
-  const busy = c.req.query("notice") === "busy"
-    ? `<p class="pending">The job is already running (or disabled). Try again in a moment.</p>`
-    : "";
-
-  const output = run
-    ? `<h2 id="output">Output of run #${run.id}</h2>
-       <p>Status: <span class="${esc(run.status)}">${esc(run.status)}</span> ·
-          started ${esc(fmt(run.started_at))} · ${run.duration_ms ?? "-"} ms</p>
-       <pre>${esc(run.log || "(no output)")}</pre>`
-    : `<h2 id="output">Output</h2><p class="muted">No runs yet. Press "Run now".</p>`;
-
-  const rows = tracks
-    .map((t) => {
-      const label = likedLabel(t);
-      return `<tr>
-        <td>${esc(t.name)}</td><td>${esc(t.artists)}</td>
-        <td>${esc(fmt(t.last_played))}</td>
-        <td>${t.plays_in_window}</td><td>${t.plays_total}</td>
-        <td class="${label.cls}">${esc(label.text)}</td></tr>`;
-    })
-    .join("");
-
-  return c.html(
-    layout(
-      "Jarvis - Spotify",
-      `<p><a href="/">&larr; Jobs</a></p>
-<h1>Spotify auto-like</h1>
-<p>Connection: ${connection}<br>
-   Mode: ${mode}<br>
-   Rule: like a song played more than ${PLAY_THRESHOLD} times in ${WINDOW_DAYS} days<br>
-   Schedule: <code>${esc(POLL_CRON)}</code> (every 2 hours) · API calls today: ${apiCallsToday(db)}</p>
-
-<form method="post" action="/spotify/run"><button type="submit">Run now</button></form>
-${busy}
-${output}
-
-<h2>Recently played</h2>
-<p class="muted">Times are this Mac's local time. "Plays (${WINDOW_DAYS} days)" is what the rule counts.</p>
-<table>
-<tr><th>Song</th><th>Artist</th><th>Last played</th><th>Plays (${WINDOW_DAYS} days)</th><th>Plays (all stored)</th><th>Liked?</th></tr>
-${rows || `<tr><td colspan="6" class="muted">No plays stored yet. Run the job once Spotify is connected.</td></tr>`}
-</table>`,
-    ),
-  );
+  const ctx = liveContext();
+  const vm = buildSpotify(ctx, Number(c.req.query("run")));
+  return c.html(spotifyPage(vm, ctx.now, { busy: c.req.query("notice") === "busy" }));
 });

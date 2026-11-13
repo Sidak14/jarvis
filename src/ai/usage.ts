@@ -17,6 +17,7 @@ export function recordAiCall(
   db: Database.Database,
   tokens: { inputTokens: number; outputTokens: number },
   now = new Date(),
+  feature?: string,
 ): void {
   db.prepare(
     `INSERT INTO api_usage (provider, date, units_used, limit_units, input_tokens, output_tokens, cost_usd)
@@ -34,6 +35,18 @@ export function recordAiCall(
     tokens.outputTokens,
     estimateCostUsd(tokens.inputTokens, tokens.outputTokens),
   );
+  // Which feature made the call (for the dashboard's breakdown only; the caps use the totals above).
+  if (feature) {
+    db.prepare(
+      `INSERT INTO ai_usage_by_feature (feature, date, calls, input_tokens, output_tokens, cost_usd)
+       VALUES (?, ?, 1, ?, ?, ?)
+       ON CONFLICT(feature, date) DO UPDATE SET
+         calls = calls + 1,
+         input_tokens = input_tokens + excluded.input_tokens,
+         output_tokens = output_tokens + excluded.output_tokens,
+         cost_usd = cost_usd + excluded.cost_usd`,
+    ).run(feature, day(now), tokens.inputTokens, tokens.outputTokens, estimateCostUsd(tokens.inputTokens, tokens.outputTokens));
+  }
 }
 
 export function aiCallsToday(db: Database.Database, now = new Date()): number {

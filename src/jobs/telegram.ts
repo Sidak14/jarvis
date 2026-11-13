@@ -47,7 +47,7 @@ export function registerTelegram(): void {
     CATEGORISE_CRON,
     async ({ log }) => {
       if (!config.TELEGRAM_QUESTIONS_ENABLED || !telegramApi || config.TELEGRAM_OWNER_ID === undefined) return;
-      const llm = config.AI_GATEWAY_API_KEY ? createGatewayLlm({ apiKey: config.AI_GATEWAY_API_KEY, db }) : null;
+      const llm = config.AI_GATEWAY_API_KEY ? createGatewayLlm({ apiKey: config.AI_GATEWAY_API_KEY, db, feature: "categorising" }) : null;
       await categoriseExpenses({ db, llm, notify, onCategorised: () => triggerJob(SYNC_JOB), log });
     },
     { timezone: TIMEZONE, quiet: true },
@@ -107,7 +107,7 @@ export function startTelegramBot(): () => void {
           notify,
           limiter,
           onLabelled: () => triggerJob(SYNC_JOB), // push the new Category/Purpose to the Sheet soon
-          llm: config.AI_GATEWAY_API_KEY ? createGatewayLlm({ apiKey: config.AI_GATEWAY_API_KEY, db }) : null,
+          llm: config.AI_GATEWAY_API_KEY ? createGatewayLlm({ apiKey: config.AI_GATEWAY_API_KEY, db, feature: "log" }) : null,
           planCommand,
           onLogged: () => {
             triggerJob(SYNC_JOB);

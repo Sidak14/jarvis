@@ -17,8 +17,10 @@ export function createGatewayLlm(opts: {
   apiKey: string;
   db: Database.Database;
   fetchFn?: typeof fetch;
+  /** A label for the dashboard's spend breakdown ("invoices", "plans", ...). Changes nothing else. */
+  feature?: string;
 }): Llm {
-  const { apiKey, db, fetchFn = fetch } = opts;
+  const { apiKey, db, fetchFn = fetch, feature } = opts;
   return {
     async complete(system, user, options) {
       // The caps are enforced here, in the one place every call goes through.
@@ -60,7 +62,7 @@ export function createGatewayLlm(opts: {
         return text;
       } finally {
         // Every attempt counts toward the caps, even a failed one, so a loop cannot run up a bill.
-        recordAiCall(db, tokens);
+        recordAiCall(db, tokens, new Date(), feature);
       }
     },
   };

@@ -246,6 +246,28 @@ and the LaunchAgent `~/Library/LaunchAgents/com.jarvis.beeper-server.plist` runs
 of RAM and starts when you log in (auto-login must stay on). To update it, replace the app folder and
 `launchctl unload` / `load` the agent. If it is down, plans-poll just logs it and tries again.
 
+## Dashboard (UI)
+
+Six pages behind Cloudflare Access, sharing one nav: **Overview** `/`, **Expenses** `/expenses`, **Plans** `/plans`,
+**Spotify** `/spotify`, **Invoices** `/gmail`, **Jobs** `/jobs`. Server-rendered HTML plus `public/dashboard.css` and a tiny
+`public/dashboard.js` (sorting, expandable rows, instant filters, live "x min ago", optional 60s auto-refresh). No build
+step, no framework, no external fonts, scripts or analytics. Times are Australia/Sydney everywhere.
+
+- **Where things live (`src/ui`):** `vm/*` builds plain-data view-models (`ModuleStatus`, `OverviewVM`, `ExpenseRowVM`, `JobVM`,
+  `PlanVM`...) from the database, with no HTML, so they are unit-tested. `pages/*` turns a view-model into HTML using
+  `components.ts` (PageLayout, StatusPill, StatTile, Card, DataTable, RelativeTime, Money, EmptyState, Banner). `format.ts` is the
+  only place money, dates, relative times and cron schedules are formatted. `html.ts` is a tagged template (`h`) that escapes
+  every interpolated value, so merchant names, chat names and plan titles can not become markup.
+- **Health banner:** the Overview lists everything that needs attention and links to it. A job is **overdue** when its next run is
+  more than 2 intervals (never under 10 minutes) in the past, or it never reported and its first run is late. Overdue jobs make the
+  banner amber; failing jobs make it amber, and red from 3 in a row. A job in the database that this server no longer schedules is
+  shown as "retired" (collapsed on the Jobs page) and is not checked.
+- **Filters** on Expenses (month, source, category, sheet status, search, "show test rows") are plain GET forms, so they work
+  without JavaScript. Rows whose merchant contains the word TEST are hidden by default and never counted in totals.
+- **AI spend** is the real total (all features share one cap) plus a per-feature breakdown from `ai_usage_by_feature`. Calls are
+  tagged `invoices`, `plans`, `categorising` or `log`; spend from before tagging shows as "earlier or untagged".
+- **Changing the CSS or JS:** bump `ASSET_VERSION` in `src/ui/components.ts` so browsers fetch the new file.
+
 ## Notes
 
 The dashboard (`GET /`) and `/spotify` are behind Cloudflare Access. `/health` and
