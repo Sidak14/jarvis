@@ -34,8 +34,10 @@ Note: integrations, devices and their names live in `.storage/`, which git ignor
 - Restart: `./ha.sh restart`, or kill the process listening on 8123 and launchd starts it again.
 - Stop/start for real needs sudo: `sudo launchctl bootout system/com.homeassistant.core` and `sudo launchctl bootstrap system /Library/LaunchDaemons/com.homeassistant.core.plist`.
 
-## Zigbee dongle
-Nabu Casa SkyConnect on `/dev/cu.usbserial-1460` (EZSP). The number comes from the USB port, so keep it in the same port.
+## Zigbee dongle (ZHA)
+Nabu Casa SkyConnect / "Home Assistant Connect ZBT-1" on `/dev/cu.usbserial-1420` (it was `-1460` in another port; the number comes from the USB port, so keep it in the same port). ZHA radio: EZSP, 115200 baud, no flow control. Firmware: Nabu Casa Zigbee NCP **7.5.1.0** (`skyconnect_zigbee_ncp_7.5.1.0.gbl` from https://github.com/NabuCasa/silabs-firmware-builder/releases/tag/v2026.02.23), flashed on 13 Nov 2026 from a Windows PC with `universal-silabs-flasher`, because the dongle would not answer on this Mac.
+ZHA formed a new Zigbee network ("recommended" setup). **No Zigbee devices are paired**; pair only when asked.
+**Mac-specific fix (not in git, re-apply after upgrades):** on this Mac the dongle only answers when DTR is low and RTS is high; serialx opens ports with DTR high by default, which keeps it silent. `homeassistant/patches/serialx_dtr_low.sh` changes serialx's default to DTR low (backs up the original to `~/homeassistant/serialx_common.py.orig`). Run it again after upgrading Home Assistant or serialx (an upgrade restores the original file), then restart Home Assistant. Symptom if forgotten: ZHA "cannot connect", flasher probe finds nothing.
 
 ## Shelly devices and the one that must never be switched on
 | IP | Device | Channels |
