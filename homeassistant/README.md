@@ -6,7 +6,7 @@ Home Assistant Core, installed natively (no Docker). LAN only: http://192.168.4.
 **The config, this README, `ha.sh` and the service file are part of the Jarvis git repo, in `~/jarvis/homeassistant/`.**
 `~/homeassistant/config`, `~/homeassistant/ha.sh` and `~/homeassistant/README.md` are symlinks to them, so the service and old paths keep working.
 Commit and push Home Assistant changes with the normal Jarvis workflow (`cd ~/jarvis && git add homeassistant && git commit`). Ignored by git: `secrets.yaml`, `.storage/`, databases, logs.
-The first section of the old config repo's history is in the Jarvis log (`git log -- homeassistant/config`); a backup of the old repo is in `~/homeassistant/config-git-backup` (safe to delete once you're happy).
+The old config repo's 9 commits are in the Jarvis log as ancestors of the move commit (`git log --oneline`; look for "Starting point: split config"). Their file paths are relative to the config folder, so `git log -- homeassistant/config` only shows the newer commits. A backup of the old repo is in `~/homeassistant/config-git-backup` (safe to delete once you're happy).
 - `venv/` Home Assistant itself. Python 3.14 is in `python/` (standalone build via uv, because Homebrew has no 3.14 for macOS 12).
 - `config/` all settings, and a git repo. Edit these files:
   - `configuration.yaml` main file, includes the others
