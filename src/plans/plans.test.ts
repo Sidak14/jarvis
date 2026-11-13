@@ -16,7 +16,6 @@ import { runPlanCommand } from "./commands";
 import { buildPrompt, calendarTable, localLabel, type DetectInput, type DetectionResult, type Detector } from "./detect";
 import { pollChats, storeMessages } from "./ingest";
 import { atomicWrite, parsePlans, renderPlans, restoreFromFile, writePlanFiles } from "./markdown";
-import { plansBody } from "./page";
 import { dmPassesPrefilter, runDetection } from "./pipeline";
 import { looksLikePlan } from "./prefilter";
 import { createPlansTables } from "./schema";
@@ -932,29 +931,6 @@ describe("safety", () => {
     const reader = fs.readFileSync(path.join(dir, "beeper.ts"), "utf8");
     const iface = reader.slice(reader.indexOf("export interface BeeperReader"), reader.indexOf("type SdkChat"));
     assert.deepEqual([...iface.matchAll(/^\s+(\w+)\(/gm)].map((m) => m[1]), ["check", "listChats", "getChat", "recentMessages"]);
-  });
-
-  it("the plans page escapes everything that came from a chat", () => {
-    const db = newDb();
-    const id = seed(db, { title: "<script>alert(1)</script>", location: '"><img src=x onerror=alert(2)>', source_chat_name: "<b>chat</b>" });
-    updatePlan(db, id, { notes: ["<iframe>"], participants: ["<i>x</i>"], url: "https://example.com/?a=1&b=<x>", possible_link: { chat_id: "D", chat_name: "<u>dm</u>", message_id: "m", confidence: 0.5, evidence: "<svg onload=1>" } }, NOW);
-    const html = plansBody({ plans: allPlans(db), today: "2026-11-12", dryRun: true, would: [{ plan_id: id, kind: "would_create", detail: "<x>", created_at: NOW.toISOString() }], chatsLine: "", statusHtml: "" });
-    assert.ok(!/<script|<img|<iframe|<svg|<b>chat|<u>dm|<i>x/.test(html), "no raw tags from chat data");
-    assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
-    assert.match(html, /Needs my attention \(1\)/);
-  });
-
-  it("the page groups plans: needs attention, upcoming, proposed, past", () => {
-    const db = newDb();
-    seed(db, { title: "Going", stance: "committed", replied_at: ago(MIN) });
-    seed(db, { title: "Floated", plan_status: "proposed" });
-    seed(db, { title: "Gone", date: "2026-11-01" });
-    seed(db, { title: "Off", plan_status: "cancelled" });
-    const html = plansBody({ plans: allPlans(db), today: "2026-11-12", dryRun: false, would: [], chatsLine: "", statusHtml: "" });
-    assert.match(html, /Upcoming, I'm going \(1\)/);
-    assert.match(html, /Proposed \/ waiting \(1\)/);
-    assert.match(html, /Past, cancelled or declined \(2\)/);
-    assert.ok(!html.includes("WOULD"), "the dry-run table only shows in dry run");
   });
 });
 

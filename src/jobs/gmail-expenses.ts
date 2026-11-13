@@ -21,7 +21,7 @@ export function registerGmailExpenses(): void {
     await runGmailExpenses({
       db,
       gmail: createGmailClient(gmailAuth, db),
-      llm: createGatewayLlm({ apiKey: config.AI_GATEWAY_API_KEY, db }),
+      llm: createGatewayLlm({ apiKey: config.AI_GATEWAY_API_KEY, db, feature: "invoices" }),
       dryRun: config.GMAIL_DRY_RUN,
       log,
       onChanged: () => {

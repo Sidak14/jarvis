@@ -18,6 +18,8 @@ interface Registered {
   cron: Cron;
   handler: JobHandler;
   quiet: boolean;
+  expression: string;
+  timezone: string | null;
 }
 
 interface RunResult {
@@ -127,7 +129,7 @@ export function registerJob(name: string, cronExpression: string, handler: JobHa
       await execute(name);
     },
   );
-  registry.set(name, { cron, handler, quiet: options.quiet ?? false });
+  registry.set(name, { cron, handler, quiet: options.quiet ?? false, expression: cronExpression, timezone: options.timezone ?? null });
 
   upsertJob.run(name, cronExpression);
   setNext.run(iso(cron.nextRun()), name);
@@ -147,6 +149,14 @@ export function triggerJob(name: string): boolean {
  */
 export async function runJobNow(name: string): Promise<number | null> {
   return (await execute(name)).runId;
+}
+
+/** The jobs this server is scheduling right now (read-only, for the dashboard's stale-job check). */
+export function listRegisteredJobs(): { name: string; cron: string; timezone: string | null; intervalMs: number }[] {
+  return [...registry.entries()].map(([name, r]) => {
+    const [a, b] = r.cron.nextRuns(2);
+    return { name, cron: r.expression, timezone: r.timezone, intervalMs: a && b ? b.getTime() - a.getTime() : 0 };
+  });
 }
 
 export function stopAllJobs(): void {
