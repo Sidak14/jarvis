@@ -74,3 +74,10 @@ Dahua NVR at 192.168.4.92 (web page on port 80, RTSP 554, Dahua protocol 37777),
 ONVIF in Home Assistant only accepts **H.264**, so each channel's **Sub Stream** is set to H.264 on the NVR (main streams and recordings are untouched). If a camera's sub-stream is changed back to H.265 it drops out; fix the NVR setting, then reload the ONVIF entry (Settings > Devices & Services > ONVIF > Reload).
 Live video works without ffmpeg (HLS via PyAV); the HLS playlists are gzip-compressed, so test with `curl --compressed`.
 Known issues: the NVR's clock/time zone was wrong (about 12 minutes slow and on a no-daylight-saving zone), set the time zone and NTP on the NVR. Entities not to touch: `button.dahua_reboot`, `button.dahua_set_system_date_and_time`, and the per-channel IR lamp / wiper / autofocus switches.
+
+## Other integrations added from discovery (13 Nov 2026)
+- **Brother MFC-L8690CDW** (`brother`, laser, SNMP port 161, community `public`): toner, drum and belt life, page counts, paper/jam/door status, e.g. `sensor.mfc_l8690cdw_black_toner`. Read-only; Home Assistant cannot print.
+- **IPP** (same printer, via IPP): overlaps with the Brother integration; ink/toner levels `sensor.brother_mfc_l8690cdw_series_*`. Safe to remove one of the two if the duplicates annoy.
+- **UPnP/IGD (eero)**: WAN status and external IP only. No client management.
+- **Samsung The Frame 55** (QA55LS03AAWXXY): DLNA media player `media_player.samsung_the_frame_55` added. The SamsungTV (remote control) integration needs the pairing prompt accepted on the TV screen; see below if still pending.
+- **Matter**: NOT set up. Home Assistant 2026.11 needs a separate matter.js "Matter Server" (the old python-matter-server was retired June 2026) at ws://localhost:5580/ws, and the four Matter devices on the network are already paired to other ecosystems, so each would need a multi-admin share code. Not started.
