@@ -17,191 +17,191 @@ views:
             heading_style: title
             icon: mdi:wifi
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shellyswitch25_c8c9a375a239_channel_1
-              state:
-                - 'on'
-                - 'off'
-          card:
-            type: entities
-            title: Shelly 2.5 · 192.168.4.155
-            show_header_toggle: false
-            entities:
-              - entity: switch.shellyswitch25_c8c9a375a239_channel_1
-                name: Channel 1 relay
-              - entity: sensor.shellyswitch25_c8c9a375a239_channel_1_power
-                name: Channel 1 power
-              - entity: sensor.shellyswitch25_c8c9a375a239_channel_1_energy
-                name: Channel 1 energy
-              - entity: binary_sensor.shellyswitch25_c8c9a375a239_channel_1_input
-                name: Channel 1 input
-              - entity: switch.shellyswitch25_c8c9a375a239_channel_2
-                name: Channel 2 relay
-              - entity: sensor.shellyswitch25_c8c9a375a239_channel_2_power
-                name: Channel 2 power
-              - entity: sensor.shellyswitch25_c8c9a375a239_channel_2_energy
-                name: Channel 2 energy
-              - entity: binary_sensor.shellyswitch25_c8c9a375a239_channel_2_input
-                name: Channel 2 input
-              - entity: binary_sensor.shellyswitch25_c8c9a375a239_overheating
-                name: Overheating
+            conditions:
+              - condition: state
+                entity: switch.shellyswitch25_c8c9a375a239_channel_1
+                state:
+                  - 'on'
+                  - 'off'
+            card:
+              type: entities
+              title: Shelly 2.5 · 192.168.4.155
+              show_header_toggle: false
+              entities:
+                - entity: switch.shellyswitch25_c8c9a375a239_channel_1
+                  name: Channel 1 relay
+                - entity: sensor.shellyswitch25_c8c9a375a239_channel_1_power
+                  name: Channel 1 power
+                - entity: sensor.shellyswitch25_c8c9a375a239_channel_1_energy
+                  name: Channel 1 energy
+                - entity: binary_sensor.shellyswitch25_c8c9a375a239_channel_1_input
+                  name: Channel 1 input
+                - entity: switch.shellyswitch25_c8c9a375a239_channel_2
+                  name: Channel 2 relay
+                - entity: sensor.shellyswitch25_c8c9a375a239_channel_2_power
+                  name: Channel 2 power
+                - entity: sensor.shellyswitch25_c8c9a375a239_channel_2_energy
+                  name: Channel 2 energy
+                - entity: binary_sensor.shellyswitch25_c8c9a375a239_channel_2_input
+                  name: Channel 2 input
+                - entity: binary_sensor.shellyswitch25_c8c9a375a239_overheating
+                  name: Overheating
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shellyswitch25_c8c9a37a653a_channel_1
-              state:
-                - 'on'
-                - 'off'
-          card:
-            type: entities
-            title: Shelly 2.5 · 192.168.4.156
-            show_header_toggle: false
-            entities:
-              - entity: switch.shellyswitch25_c8c9a37a653a_channel_1
-                name: Channel 1 relay
-              - entity: sensor.shellyswitch25_c8c9a37a653a_channel_1_power
-                name: Channel 1 power
-              - entity: sensor.shellyswitch25_c8c9a37a653a_channel_1_energy
-                name: Channel 1 energy
-              - entity: binary_sensor.shellyswitch25_c8c9a37a653a_channel_1_input
-                name: Channel 1 input
-              - entity: switch.shellyswitch25_c8c9a37a653a_channel_2
-                name: Channel 2 relay
-              - entity: sensor.shellyswitch25_c8c9a37a653a_channel_2_power
-                name: Channel 2 power
-              - entity: sensor.shellyswitch25_c8c9a37a653a_channel_2_energy
-                name: Channel 2 energy
-              - entity: binary_sensor.shellyswitch25_c8c9a37a653a_channel_2_input
-                name: Channel 2 input
-              - entity: binary_sensor.shellyswitch25_c8c9a37a653a_overheating
-                name: Overheating
+            conditions:
+              - condition: state
+                entity: switch.shellyswitch25_c8c9a37a653a_channel_1
+                state:
+                  - 'on'
+                  - 'off'
+            card:
+              type: entities
+              title: Shelly 2.5 · 192.168.4.156
+              show_header_toggle: false
+              entities:
+                - entity: switch.shellyswitch25_c8c9a37a653a_channel_1
+                  name: Channel 1 relay
+                - entity: sensor.shellyswitch25_c8c9a37a653a_channel_1_power
+                  name: Channel 1 power
+                - entity: sensor.shellyswitch25_c8c9a37a653a_channel_1_energy
+                  name: Channel 1 energy
+                - entity: binary_sensor.shellyswitch25_c8c9a37a653a_channel_1_input
+                  name: Channel 1 input
+                - entity: switch.shellyswitch25_c8c9a37a653a_channel_2
+                  name: Channel 2 relay
+                - entity: sensor.shellyswitch25_c8c9a37a653a_channel_2_power
+                  name: Channel 2 power
+                - entity: sensor.shellyswitch25_c8c9a37a653a_channel_2_energy
+                  name: Channel 2 energy
+                - entity: binary_sensor.shellyswitch25_c8c9a37a653a_channel_2_input
+                  name: Channel 2 input
+                - entity: binary_sensor.shellyswitch25_c8c9a37a653a_overheating
+                  name: Overheating
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shellyswitch25_c8c9a375c8b2_channel_1
-              state:
-                - 'on'
-                - 'off'
-          card:
-            type: entities
-            title: Shelly 2.5 · 192.168.4.158
-            show_header_toggle: false
-            entities:
-              - entity: switch.shellyswitch25_c8c9a375c8b2_channel_1
-                name: Channel 1 relay
-              - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_1_power
-                name: Channel 1 power
-              - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_1_energy
-                name: Channel 1 energy
-              - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_channel_1_input
-                name: Channel 1 input
-              - entity: switch.shellyswitch25_c8c9a375c8b2_channel_2
-                name: Channel 2 relay
-              - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_2_power
-                name: Channel 2 power
-              - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_2_energy
-                name: Channel 2 energy
-              - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_channel_2_input
-                name: Channel 2 input
-              - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_overheating
-                name: Overheating
+            conditions:
+              - condition: state
+                entity: switch.shellyswitch25_c8c9a375c8b2_channel_1
+                state:
+                  - 'on'
+                  - 'off'
+            card:
+              type: entities
+              title: Shelly 2.5 · 192.168.4.158
+              show_header_toggle: false
+              entities:
+                - entity: switch.shellyswitch25_c8c9a375c8b2_channel_1
+                  name: Channel 1 relay
+                - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_1_power
+                  name: Channel 1 power
+                - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_1_energy
+                  name: Channel 1 energy
+                - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_channel_1_input
+                  name: Channel 1 input
+                - entity: switch.shellyswitch25_c8c9a375c8b2_channel_2
+                  name: Channel 2 relay
+                - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_2_power
+                  name: Channel 2 power
+                - entity: sensor.shellyswitch25_c8c9a375c8b2_channel_2_energy
+                  name: Channel 2 energy
+                - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_channel_2_input
+                  name: Channel 2 input
+                - entity: binary_sensor.shellyswitch25_c8c9a375c8b2_overheating
+                  name: Overheating
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shellyswitch25_c45bbe6bd1ee_channel_1
-              state:
-                - 'on'
-                - 'off'
-          card:
-            type: entities
-            title: Shelly 2.5 · 192.168.4.153
-            show_header_toggle: false
-            entities:
-              - entity: switch.shellyswitch25_c45bbe6bd1ee_channel_1
-                name: Channel 1 relay
-              - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_1_power
-                name: Channel 1 power
-              - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_1_energy
-                name: Channel 1 energy
-              - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_channel_1_input
-                name: Channel 1 input
-              - entity: switch.shellyswitch25_c45bbe6bd1ee_channel_2
-                name: Channel 2 relay
-              - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_2_power
-                name: Channel 2 power
-              - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_2_energy
-                name: Channel 2 energy
-              - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_channel_2_input
-                name: Channel 2 input
-              - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_overheating
-                name: Overheating
+            conditions:
+              - condition: state
+                entity: switch.shellyswitch25_c45bbe6bd1ee_channel_1
+                state:
+                  - 'on'
+                  - 'off'
+            card:
+              type: entities
+              title: Shelly 2.5 · 192.168.4.153
+              show_header_toggle: false
+              entities:
+                - entity: switch.shellyswitch25_c45bbe6bd1ee_channel_1
+                  name: Channel 1 relay
+                - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_1_power
+                  name: Channel 1 power
+                - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_1_energy
+                  name: Channel 1 energy
+                - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_channel_1_input
+                  name: Channel 1 input
+                - entity: switch.shellyswitch25_c45bbe6bd1ee_channel_2
+                  name: Channel 2 relay
+                - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_2_power
+                  name: Channel 2 power
+                - entity: sensor.shellyswitch25_c45bbe6bd1ee_channel_2_energy
+                  name: Channel 2 energy
+                - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_channel_2_input
+                  name: Channel 2 input
+                - entity: binary_sensor.shellyswitch25_c45bbe6bd1ee_overheating
+                  name: Overheating
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shelly1pm_34945472b313
-              state:
-                - 'on'
-                - 'off'
-          card:
-            type: entities
-            title: Shelly 1PM · 192.168.4.154
-            show_header_toggle: false
-            entities:
-              - entity: switch.shelly1pm_34945472b313
-                name: relay
-              - entity: sensor.shelly1pm_34945472b313_power
-                name: power
-              - entity: sensor.shelly1pm_34945472b313_energy
-                name: energy
-              - entity: binary_sensor.shelly1pm_34945472b313_input
-                name: input
-              - entity: binary_sensor.shelly1pm_34945472b313_overheating
-                name: Overheating
+            conditions:
+              - condition: state
+                entity: switch.shelly1pm_34945472b313
+                state:
+                  - 'on'
+                  - 'off'
+            card:
+              type: entities
+              title: Shelly 1PM · 192.168.4.154
+              show_header_toggle: false
+              entities:
+                - entity: switch.shelly1pm_34945472b313
+                  name: relay
+                - entity: sensor.shelly1pm_34945472b313_power
+                  name: power
+                - entity: sensor.shelly1pm_34945472b313_energy
+                  name: energy
+                - entity: binary_sensor.shelly1pm_34945472b313_input
+                  name: input
+                - entity: binary_sensor.shelly1pm_34945472b313_overheating
+                  name: Overheating
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shelly1pm_34945471ad19
-              state:
-                - 'on'
-                - 'off'
-          card:
-            type: entities
-            title: Shelly 1PM · 192.168.4.157
-            show_header_toggle: false
-            entities:
-              - entity: switch.shelly1pm_34945471ad19
-                name: relay
-              - entity: sensor.shelly1pm_34945471ad19_power
-                name: power
-              - entity: sensor.shelly1pm_34945471ad19_energy
-                name: energy
-              - entity: binary_sensor.shelly1pm_34945471ad19_input
-                name: input
-              - entity: binary_sensor.shelly1pm_34945471ad19_overheating
-                name: Overheating
+            conditions:
+              - condition: state
+                entity: switch.shelly1pm_34945471ad19
+                state:
+                  - 'on'
+                  - 'off'
+            card:
+              type: entities
+              title: Shelly 1PM · 192.168.4.157
+              show_header_toggle: false
+              entities:
+                - entity: switch.shelly1pm_34945471ad19
+                  name: relay
+                - entity: sensor.shelly1pm_34945471ad19_power
+                  name: power
+                - entity: sensor.shelly1pm_34945471ad19_energy
+                  name: energy
+                - entity: binary_sensor.shelly1pm_34945471ad19_input
+                  name: input
+                - entity: binary_sensor.shelly1pm_34945471ad19_overheating
+                  name: Overheating
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shelly1pm_34945471a117
-              state:
-                - 'on'
-                - 'off'
-          card:
-            type: entities
-            title: Shelly 1PM · 192.168.4.152
-            show_header_toggle: false
-            entities:
-              - entity: switch.shelly1pm_34945471a117
-                name: relay
-              - entity: sensor.shelly1pm_34945471a117_power
-                name: power
-              - entity: sensor.shelly1pm_34945471a117_energy
-                name: energy
-              - entity: binary_sensor.shelly1pm_34945471a117_input
-                name: input
-              - entity: binary_sensor.shelly1pm_34945471a117_overheating
-                name: Overheating
+            conditions:
+              - condition: state
+                entity: switch.shelly1pm_34945471a117
+                state:
+                  - 'on'
+                  - 'off'
+            card:
+              type: entities
+              title: Shelly 1PM · 192.168.4.152
+              show_header_toggle: false
+              entities:
+                - entity: switch.shelly1pm_34945471a117
+                  name: relay
+                - entity: sensor.shelly1pm_34945471a117_power
+                  name: power
+                - entity: sensor.shelly1pm_34945471a117_energy
+                  name: energy
+                - entity: binary_sensor.shelly1pm_34945471a117_input
+                  name: input
+                - entity: binary_sensor.shelly1pm_34945471a117_overheating
+                  name: Overheating
       - type: grid
         column_span: 3
         cards:
@@ -210,93 +210,93 @@ views:
             heading_style: title
             icon: mdi:wifi-off
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shellyswitch25_c8c9a375a239_channel_1
-              state_not:
-                - 'on'
-                - 'off'
-          card:
-            type: markdown
-            title: Shelly 2.5 · 192.168.4.155
-            content: |-
-              Not reachable on the network.
-              MAC C8:C9:A3:75:A2:39
+            conditions:
+              - condition: state
+                entity: switch.shellyswitch25_c8c9a375a239_channel_1
+                state_not:
+                  - 'on'
+                  - 'off'
+            card:
+              type: markdown
+              title: Shelly 2.5 · 192.168.4.155
+              content: |-
+                Not reachable on the network.
+                MAC C8:C9:A3:75:A2:39
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shellyswitch25_c8c9a37a653a_channel_1
-              state_not:
-                - 'on'
-                - 'off'
-          card:
-            type: markdown
-            title: Shelly 2.5 · 192.168.4.156
-            content: |-
-              Not reachable on the network.
-              MAC C8:C9:A3:7A:65:3A
+            conditions:
+              - condition: state
+                entity: switch.shellyswitch25_c8c9a37a653a_channel_1
+                state_not:
+                  - 'on'
+                  - 'off'
+            card:
+              type: markdown
+              title: Shelly 2.5 · 192.168.4.156
+              content: |-
+                Not reachable on the network.
+                MAC C8:C9:A3:7A:65:3A
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shellyswitch25_c8c9a375c8b2_channel_1
-              state_not:
-                - 'on'
-                - 'off'
-          card:
-            type: markdown
-            title: Shelly 2.5 · 192.168.4.158
-            content: |-
-              Not reachable on the network.
-              MAC C8:C9:A3:75:C8:B2
+            conditions:
+              - condition: state
+                entity: switch.shellyswitch25_c8c9a375c8b2_channel_1
+                state_not:
+                  - 'on'
+                  - 'off'
+            card:
+              type: markdown
+              title: Shelly 2.5 · 192.168.4.158
+              content: |-
+                Not reachable on the network.
+                MAC C8:C9:A3:75:C8:B2
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shellyswitch25_c45bbe6bd1ee_channel_1
-              state_not:
-                - 'on'
-                - 'off'
-          card:
-            type: markdown
-            title: Shelly 2.5 · 192.168.4.153
-            content: |-
-              Not reachable on the network.
-              MAC C4:5B:BE:6B:D1:EE
+            conditions:
+              - condition: state
+                entity: switch.shellyswitch25_c45bbe6bd1ee_channel_1
+                state_not:
+                  - 'on'
+                  - 'off'
+            card:
+              type: markdown
+              title: Shelly 2.5 · 192.168.4.153
+              content: |-
+                Not reachable on the network.
+                MAC C4:5B:BE:6B:D1:EE
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shelly1pm_34945472b313
-              state_not:
-                - 'on'
-                - 'off'
-          card:
-            type: markdown
-            title: Shelly 1PM · 192.168.4.154
-            content: |-
-              Not reachable on the network.
-              MAC 34:94:54:72:B3:13
+            conditions:
+              - condition: state
+                entity: switch.shelly1pm_34945472b313
+                state_not:
+                  - 'on'
+                  - 'off'
+            card:
+              type: markdown
+              title: Shelly 1PM · 192.168.4.154
+              content: |-
+                Not reachable on the network.
+                MAC 34:94:54:72:B3:13
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shelly1pm_34945471ad19
-              state_not:
-                - 'on'
-                - 'off'
-          card:
-            type: markdown
-            title: Shelly 1PM · 192.168.4.157
-            content: |-
-              Not reachable on the network.
-              MAC 34:94:54:71:AD:19
+            conditions:
+              - condition: state
+                entity: switch.shelly1pm_34945471ad19
+                state_not:
+                  - 'on'
+                  - 'off'
+            card:
+              type: markdown
+              title: Shelly 1PM · 192.168.4.157
+              content: |-
+                Not reachable on the network.
+                MAC 34:94:54:71:AD:19
           - type: conditional
-          conditions:
-            - condition: state
-              entity: switch.shelly1pm_34945471a117
-              state_not:
-                - 'on'
-                - 'off'
-          card:
-            type: markdown
-            title: Shelly 1PM · 192.168.4.152
-            content: |-
-              Not reachable on the network.
-              MAC 34:94:54:71:A1:17
+            conditions:
+              - condition: state
+                entity: switch.shelly1pm_34945471a117
+                state_not:
+                  - 'on'
+                  - 'off'
+            card:
+              type: markdown
+              title: Shelly 1PM · 192.168.4.152
+              content: |-
+                Not reachable on the network.
+                MAC 34:94:54:71:A1:17
