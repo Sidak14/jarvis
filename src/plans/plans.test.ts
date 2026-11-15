@@ -187,6 +187,35 @@ describe("applying what the model found", () => {
     assert.equal(allPlans(db).length, 1);
   });
 
+  describe("after midnight", () => {
+    const LATE = new Date("2026-11-13T14:00:00Z"); // 1:00am Sat 14 Nov in Sydney: Friday night is still going
+    const at = (chat: string, msgs: BatchMessage[], rs: DetectionResult[]) => applyResults(db, ctx(chat, "Footy boys", msgs, LATE), rs);
+
+    it("'tonight' at 1am does not move Friday's plan to Saturday", () => {
+      const id = seed(db, { date: "2026-11-13", start_time: "21:30", location: "Drunk Dumpling" });
+      at("G", [msg("m9")], [result({ action: "update", plan_id: "P-0001", date: "2026-11-14", location: "The lookout", my_stance: "none", stance_changed: false, evidence_message_ids: ["m9"] })]);
+      assert.equal(plan(db, id).date, "2026-11-13");
+      assert.equal(plan(db, id).location, "The lookout", "the other new details are still taken");
+    });
+
+    it("a plan whose night is over is not rewritten for another day: that is a new plan", () => {
+      const id = seed(db, { date: "2026-11-13", start_time: "21:30" });
+      const NOON_SAT = new Date("2026-11-14T01:00:00Z"); // noon Sat: Friday's night is over
+      const r = applyResults(db, ctx("G", "Footy boys", [msg("m9", { ts: NOON_SAT.toISOString() })], NOON_SAT), [
+        result({ action: "update", plan_id: "P-0001", date: "2026-11-15", start_time: "20:00", my_stance: "none", stance_changed: false, evidence_message_ids: ["m9"] }),
+      ]);
+      assert.equal(plan(db, id).date, "2026-11-13", "the old plan stays as it was");
+      assert.deepEqual(r.created, [2]);
+      assert.equal(plan(db, 2).date, "2026-11-15");
+    });
+
+    it("tells the model what 'tonight' means before 5am", () => {
+      const p = buildPrompt({ now: LATE, chatName: "x", chatType: "group", plans: [], messages: [] } as never);
+      assert.match(p.user, /before 5am: "tonight" means the evening of 2026-11-13/);
+      assert.match(p.system, /between midnight and 5am/);
+    });
+  });
+
   it("extracts the rich details and clips them", () => {
     apply("G", "Footy boys", [msg("m1", { me: true })], [result({ what: "Birthday dinner", meeting_point: "Outside Central", participants: ["Sam", "Jo"], cost: "$60 each", bring: "ID", url: "https://example.com/book", notes: ["Parking at the Star", "x".repeat(500)] })]);
     const p = plan(db, 1);
@@ -576,6 +605,38 @@ describe("calendar", () => {
     assert.equal(cal.events.length, 1);
     assert.equal(cal.events[0].startIso, "2026-11-14T09:00:00.000Z");
     assert.equal(sent.filter((s) => /^Updated on your calendar/.test(s.text)).length, 1);
+  });
+
+  it("keeps the event up to date but stays quiet about a reworded venue or a new note", async () => {
+    const id = ready({ location: "Drunk Dumpling (city)" });
+    await go();
+    sent.length = 0;
+    updatePlan(db, id, { location: "Drunk Dumpling (city) unless the group changes venue", notes: ["Aadi is driving"] }, NOW);
+    await go();
+    assert.match(cal.events[0].location ?? "", /unless the group changes venue/, "the event itself was updated");
+    assert.equal(sent.length, 0, "but nothing was sent");
+    updatePlan(db, id, { location: "The lookout" }, NOW);
+    await go();
+    assert.equal(sent.filter((s) => /^Updated on your calendar/.test(s.text)).length, 1, "a real new venue is announced");
+  });
+
+  it("messages about a plan expire when its night is over (5am the next day)", async () => {
+    ready();
+    await go();
+    const expires = (sent[0].options as { expiresAt?: Date }).expiresAt;
+    assert.equal(expires?.toISOString(), "2026-11-14T18:00:00.000Z"); // 5am Sun 15 Nov, Sydney
+  });
+
+  it("a confirmed plan that moves and falls back to proposed: tells me once that the calendar still has the old day", async () => {
+    const id = ready();
+    await go();
+    sent.length = 0;
+    updatePlan(db, id, { date: "2026-11-15", plan_status: "proposed" }, NOW);
+    await go();
+    await go();
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].text, /now says Sun 15 Nov.*still has it on Sat 14 Nov, 7:00pm.*\/remove P-0001/s);
+    assert.equal(cal.events.length, 1, "nothing is moved or removed on its own");
   });
 
   it("never exceeds 5 new events a day, and says so", async () => {

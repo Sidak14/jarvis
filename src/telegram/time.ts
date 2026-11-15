@@ -44,6 +44,10 @@ export const dayKey = (d: Date) => {
   const z = zoned(d);
   return `${z.year}-${pad(z.month)}-${pad(z.day)}`;
 };
+/** Plans' "night" runs until 5am: at 1am on the 14th, "tonight" is still the evening of the 13th. */
+export const NIGHT_ENDS_HOUR = 5;
+/** The calendar day whose evening is still going on (the day before, until 5am). */
+export const eveningDay = (now: Date) => dayKey(new Date(now.getTime() - NIGHT_ENDS_HOUR * 3_600_000));
 /** "2026-11" */
 export const monthKey = (d: Date) => dayKey(d).slice(0, 7);
 

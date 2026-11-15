@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import { oneLine } from "../telegram/format";
 import type { Outbox } from "../telegram/outbox";
-import { dayKey, dayLabel, formatClock, startOfDay, zonedTime, zoned } from "../telegram/time";
+import { dayKey, dayLabel, formatClock, NIGHT_ENDS_HOUR, startOfDay, zonedTime, zoned } from "../telegram/time";
 import type { BusyEvent, CalendarClient } from "./calendar";
 import {
   CALENDAR_CREATES_PER_DAY,
@@ -93,6 +93,33 @@ function eventInput(p: Plan) {
   return { planId: planCode(p.id), title: p.title, description: lines.join("\n"), location: p.location, startIso: t.start.toISOString(), endIso: t.end.toISOString() };
 }
 
+/** Messages about a plan are useless once its night is over (5am the day after), so they expire then. */
+function planEnds(p: Plan): Date | undefined {
+  if (!p.date) return undefined;
+  const [y, m, d] = p.date.split("-").map(Number);
+  return zonedTime(y, m, d + 1, NIGHT_ENDS_HOUR * 60);
+}
+const planNote = (p: Plan) => ({ kind: "plan", ref: planCode(p.id), canWait: true, expiresAt: planEnds(p) });
+
+// What the calendar event says right now (day, time, place), saved each time Jarvis writes it, so a later
+// change can be told apart: a new day, time or venue is worth a message, a reworded venue or a note is not.
+interface Snapshot { date: string | null; start: string | null; location: string | null }
+function saveSnapshot(db: Database.Database, p: Plan, now: Date): void {
+  recordAction(db, p.id, "synced", now.toISOString(), JSON.stringify({ date: p.date, start: p.start_time, location: p.location }), false, now);
+}
+function lastSnapshot(db: Database.Database, planId: number): Snapshot | null {
+  const detail = db.prepare(`SELECT detail FROM plan_actions WHERE plan_id = ? AND kind = 'synced' AND dry_run = 0 ORDER BY id DESC LIMIT 1`).pluck().get(planId) as string | undefined;
+  return detail ? (JSON.parse(detail) as Snapshot) : null;
+}
+function materialChange(before: Snapshot | null, p: Plan): boolean {
+  if (!before) return true;
+  if (before.date !== p.date || before.start !== p.start_time) return true;
+  const a = (before.location ?? "").toLowerCase().trim();
+  const b = (p.location ?? "").toLowerCase().trim();
+  if (!a !== !b) return true;
+  return !(a.includes(b) || b.includes(a)); // "Drunk Dumpling" vs "Drunk Dumpling (city) unless..." is the same venue
+}
+
 const describe = (p: Plan) => `${oneLine(p.title, 80)}, ${whenLabel(p)}`;
 
 // ---------------------------------------------------------------- the actions
@@ -121,6 +148,7 @@ export async function createEventNow(deps: ActionDeps, plan: Plan, opts: { force
   const existing = await calendar.findByPlan(pid);
   if (existing) {
     updatePlan(db, plan.id, { event_id: existing.id, event_link: existing.link, event_version: eventVersion(plan), cal_state: "created" }, now);
+    saveSnapshot(db, plan, now);
     return "adopted";
   }
 
@@ -131,7 +159,7 @@ export async function createEventNow(deps: ActionDeps, plan: Plan, opts: { force
       const v = planVersion(plan);
       updatePlan(db, plan.id, { cal_state: "clash", cal_state_version: v }, now);
       if (recordAction(db, plan.id, "clash", v, clashes.map((c) => c.summary).join("; ").slice(0, 300), false, now)) {
-        deps.notify(clashText(plan, clashes), { kind: "plan", ref: pid, canWait: true });
+        deps.notify(clashText(plan, clashes), planNote(plan));
       }
       return "clash";
     }
@@ -140,7 +168,8 @@ export async function createEventNow(deps: ActionDeps, plan: Plan, opts: { force
   const ev = await calendar.create(input);
   recordAction(db, plan.id, "create", `${now.toISOString()}:${ev.id}`, ev.id, false, now);
   updatePlan(db, plan.id, { event_id: ev.id, event_link: ev.link, event_version: eventVersion(plan), cal_state: "created" }, now);
-  deps.notify(`Added ${describe(plan)}${plan.location ? ` at ${oneLine(plan.location, 60)}` : ""} to your calendar (from ${oneLine(plan.source_chat_name, 40)}).\nWrong? Reply /undo ${pid}`, { kind: "plan", ref: pid, canWait: true });
+  saveSnapshot(db, plan, now);
+  deps.notify(`Added ${describe(plan)}${plan.location ? ` at ${oneLine(plan.location, 60)}` : ""} to your calendar (from ${oneLine(plan.source_chat_name, 40)}).\nWrong? Reply /undo ${pid}`, planNote(plan));
   return "created";
 }
 
@@ -174,7 +203,7 @@ async function handlePlan(deps: ActionDeps, plan: Plan, sum: ActionSummary): Pro
   if (plan.plan_status === "cancelled") {
     if (plan.event_id && (await removeEventNow(deps, plan, "cancelled"))) {
       sum.removed++;
-      deps.notify(`${describe(plan)} was cancelled, so I removed it from your calendar.`, { kind: "plan", ref: pid, canWait: true });
+      deps.notify(`${describe(plan)} was cancelled, so I removed it from your calendar.`, planNote(plan));
     }
     return;
   }
@@ -182,7 +211,7 @@ async function handlePlan(deps: ActionDeps, plan: Plan, sum: ActionSummary): Pro
   if (plan.my_stance === "declined") {
     if (plan.event_id && (await removeEventNow(deps, plan, "declined"))) {
       sum.removed++;
-      deps.notify(`You declined ${describe(plan)}, so I removed it from your calendar.\nChanged your mind? Reply /addback ${pid}`, { kind: "plan", ref: pid, canWait: true });
+      deps.notify(`You declined ${describe(plan)}, so I removed it from your calendar.\nChanged your mind? Reply /addback ${pid}`, planNote(plan));
     }
     return;
   }
@@ -195,7 +224,7 @@ async function handlePlan(deps: ActionDeps, plan: Plan, sum: ActionSummary): Pro
         deps.log(`would ask whether to keep: ${describe(plan)}`);
         sum.would++;
       } else {
-        deps.notify(`You said maybe about ${describe(plan)}, which is on your calendar.\nReply /keep ${pid} or /remove ${pid}`, { kind: "plan", ref: pid, canWait: true });
+        deps.notify(`You said maybe about ${describe(plan)}, which is on your calendar.\nReply /keep ${pid} or /remove ${pid}`, planNote(plan));
       }
     }
   }
@@ -209,11 +238,22 @@ async function handlePlan(deps: ActionDeps, plan: Plan, sum: ActionSummary): Pro
           sum.would++;
         }
       } else if (deps.calendar) {
+        const before = lastSnapshot(db, plan.id);
         const ev = await deps.calendar.update(plan.event_id, eventInput(plan));
         updatePlan(db, plan.id, { event_link: ev.link, event_version: eventVersion(plan) }, now);
         recordAction(db, plan.id, "update", `${eventVersion(plan)}`, null, false, now);
+        saveSnapshot(db, plan, now);
         sum.updated++;
-        deps.notify(`Updated on your calendar: ${describe(plan)}${plan.location ? ` at ${oneLine(plan.location, 60)}` : ""}.`, { kind: "plan", ref: pid, canWait: true });
+        // The event is always kept up to date, but you are only told about a new day, time or venue.
+        if (materialChange(before, plan)) deps.notify(`Updated on your calendar: ${describe(plan)}${plan.location ? ` at ${oneLine(plan.location, 60)}` : ""}.`, planNote(plan));
+      }
+    } else if (!deps.dryRun && !wantsEvent(plan)) {
+      // The plan moved (or fell back to "proposed") but the event on the calendar is still the old one: say so, once.
+      const before = lastSnapshot(db, plan.id);
+      if (before && (before.date !== plan.date || before.start !== plan.start_time) && recordAction(db, plan.id, "ping_stale", planVersion(plan), null, false, now)) {
+        const was = whenLabel({ ...plan, date: before.date, start_time: before.start });
+        deps.notify(`${oneLine(plan.title, 80)}: the chat now says ${whenLabel(plan)} and it is not confirmed, but your calendar still has it on ${was}.\nReply /remove ${pid} to take it off your calendar, or /keep ${pid} to leave it.`, planNote(plan));
+        sum.pinged++;
       }
     }
   } else if (wantsEvent(plan) && plan.cal_state !== "suppressed" && !(plan.cal_state === "clash" && plan.cal_state_version === planVersion(plan))) {
@@ -232,7 +272,7 @@ async function handlePlan(deps: ActionDeps, plan: Plan, sum: ActionSummary): Pro
         deps.log(`would ask you to check the date: ${oneLine(plan.title, 60)}`);
         sum.would++;
       } else {
-        deps.notify(`${oneLine(plan.title, 80)} (from ${oneLine(plan.source_chat_name, 40)}) looks confirmed, but I can't tell which day it is. Please check the chat. (${pid})`, { kind: "plan", ref: pid, canWait: true });
+        deps.notify(`${oneLine(plan.title, 80)} (from ${oneLine(plan.source_chat_name, 40)}) looks confirmed, but I can't tell which day it is. Please check the chat. (${pid})`, planNote(plan));
         sum.pinged++;
       }
     }
@@ -245,7 +285,7 @@ async function handlePlan(deps: ActionDeps, plan: Plan, sum: ActionSummary): Pro
         deps.log(`would ping: ${describe(plan)}`);
         sum.would++;
       } else {
-        deps.notify(pingText(plan), { kind: "plan", ref: pid, canWait: true });
+        deps.notify(pingText(plan), planNote(plan));
         updatePlan(db, plan.id, { last_pinged_at: now.toISOString() }, now);
         sum.pinged++;
       }

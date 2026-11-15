@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { zoned } from "../telegram/time";
+import { dayKey, eveningDay, zoned } from "../telegram/time";
 import type { DetectionResult } from "./detect";
 import {
   LINK_HIGH,
@@ -175,7 +175,8 @@ export function applyResults(db: Database.Database, ctx: BatchContext, results: 
   return report;
 }
 
-function applyOne(db: Database.Database, ctx: BatchContext, r: DetectionResult, report: ApplyReport, mayCreate: () => boolean): void {
+function applyOne(db: Database.Database, ctx: BatchContext, r0: DetectionResult, report: ApplyReport, mayCreate: () => boolean): void {
+  let r = r0;
   if (r.action === "none") return;
   const evidence = (r.evidence_message_ids ?? []).filter((id) => ctx.messages.has(id));
   const fields = sanitise(r, ctx.now);
@@ -206,6 +207,13 @@ function applyOne(db: Database.Database, ctx: BatchContext, r: DetectionResult, 
     }
   } else if (r.action === "update") {
     return void report.rejected.push("update of an unknown plan");
+  }
+
+  // A plan whose night is over is history. Someone talking about a different day is talking about a NEW plan.
+  if (plan && r.action === "update" && fields.date && plan.date && fields.date !== plan.date && plan.date < eveningDay(ctx.now)) {
+    r = { ...r, action: "create", plan_id: null, title: r.title ?? plan.title };
+    fields.title = fields.title ?? plan.title;
+    plan = undefined;
   }
 
   if (!plan && r.action === "create") {
@@ -261,7 +269,10 @@ function applyOne(db: Database.Database, ctx: BatchContext, r: DetectionResult, 
   markReplied(db, ctx, plan.id, r);
 }
 
-function mergeUpdate(db: Database.Database, ctx: BatchContext, plan: Plan, f: Fields, r: DetectionResult, evidence: string[], report: ApplyReport): void {
+function mergeUpdate(db: Database.Database, ctx: BatchContext, plan: Plan, f0: Fields, r: DetectionResult, evidence: string[], report: ApplyReport): void {
+  let f = f0;
+  // Between midnight and 5am "tonight" is still last evening: do not move a plan from yesterday to today for that.
+  if (f.date && f.date === dayKey(ctx.now) && plan.date === eveningDay(ctx.now) && f.date !== plan.date) f = { ...f, date: null };
   const changes: Partial<Plan> = {};
   const notes: string[] = [];
   const set = <K extends keyof Plan>(key: K, value: Plan[K] | null, label?: string) => {

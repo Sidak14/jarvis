@@ -56,4 +56,5 @@ export function createTelegramTables(db: Database.Database): void {
     );
   `);
   addColumnIfMissing(db, "outbox", "send_after", "TEXT");
+  addColumnIfMissing(db, "outbox", "expires_at", "TEXT");
 }

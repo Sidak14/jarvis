@@ -233,6 +233,13 @@ to, adds them to your Google Calendar. `/plans` shows everything.
 - **Telegram (no buttons, Beeper does not show them):** each message ends with a command:
   `/undo P-0001`, `/addback P-0001`, `/addanyway P-0001` (after a clash), `/keep` / `/remove P-0001`
   (after you said maybe), `/plans`. One ping per plan version if you have not replied.
+- **Nights run until 5am.** Between midnight and 5am "tonight" still means the evening that began the day before, so a
+  plan is not moved to the new day (the prompt says so, and `apply.ts` refuses that date change). A plan whose night is
+  over is never rewritten for another day: talk about a different day becomes a new plan.
+- **Plan messages expire** at 5am the day after the plan (`outbox.expires_at`): if one was held overnight and the plan is
+  over by 9am, it is dropped instead of sent. The calendar event is always kept up to date, but you are only messaged
+  about a new day, time or venue (what the event said last is kept in `plan_actions`, kind `synced`). If a plan moves
+  or falls back to "proposed" while its event is still on the calendar, you get one message with `/remove` and `/keep`.
 - **Files:** `plans.md` is written by code only (temp file + rename, backup first, one writer at a
   time) from the database; plans 14+ days past move to `plans-archive.md`. If the database is empty
   and `plans.md` exists, it is loaded back.

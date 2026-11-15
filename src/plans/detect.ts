@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { askJson } from "../ai/json";
 import type { Llm } from "../ai/llm";
-import { dayKey, dayLabel, formatClock, startOfDay, zoned } from "../telegram/time";
+import { dayKey, dayLabel, eveningDay, formatClock, startOfDay, zoned } from "../telegram/time";
 import { CALENDAR_TABLE_DAYS, MAX_RESULTS_PER_BATCH, TIMEZONE } from "./settings";
 
 // The ONE place the model is called for plans. Everything it says is untrusted: it only fills the
@@ -79,7 +79,7 @@ Reply with ONLY: {"results": [ ... ]}. Use [] if there is nothing about a plan. 
 - plan_id: the code of the open plan this is about (for update), else null.
 - title (short), what (what it is), date ("YYYY-MM-DD"), start_time ("HH:MM" 24h), end_time, location (the place), meeting_point, participants (names of people going), cost, bring (what to bring or wear), url, notes (array of other useful details: parking, dress code, anything extra).
 - plan_status: "proposed" (floated, not clearly going ahead; includes plans that nobody has agreed to yet), "confirmed" (clearly going ahead: someone locked in a time and place such as "booked" or "see you at 7", or enough other people said yes and nobody is blocking it), "cancelled" (called off, or the group clearly backs out). When unsure use "proposed".
-- date_certainty: "exact" or "ambiguous". Resolve "Saturday", "tomorrow", "next weekend" to a real date using each message's own time and the calendar table. If it cannot be pinned to one day, set date null and "ambiguous".
+- date_certainty: "exact" or "ambiguous". Resolve "Saturday", "tomorrow", "next weekend" to a real date using each message's own time and the calendar table. A night does not end at midnight: in a message sent between midnight and 5am, "tonight", "today" and "now" mean the evening that began the previous calendar day, so a plan already going on gets the previous day's date and is NOT moved to the new day. If people are clearly planning a second night, make a new plan instead of changing the one that already happened. If it cannot be pinned to one day, set date null and "ambiguous".
 - my_stance: what ME said in these messages: "committed" (clearly yes: "keen", "I'm in", "see you there", "yeah let's run it"; also ME proposing the plan), "declined" ("can't make it", "I'm out"), "unsure" ("maybe", "I'll see"), "enquiring" (ME asked for information such as "what time?", "where?", "who's going?": this is NOT a yes), or "none" (ME said nothing about it). A clear yes/no reaction from ME (thumbs up, etc.) counts like a message.
 - stance_changed: true if ME made an explicit committed / declined / unsure statement in this batch. Enquiring and silence are not changes.
 - stance_evidence_message_id: the id of ME's message or reaction that shows the stance.
@@ -125,8 +125,9 @@ export function buildPrompt(input: DetectInput): { system: string; user: string 
         : `id=${m.id} | ${localLabel(new Date(m.ts))} | ${who}${where} | ${clean(m.text, 600)}`;
     })
     .join("\n");
+  const night = eveningDay(input.now) !== dayKey(input.now) ? `It is before 5am: "tonight" means the evening of ${eveningDay(input.now)}.\n` : "";
   const user = `Now: ${localLabel(input.now)} ${zoned(input.now).year} (${TIMEZONE}).
-Calendar: ${calendarTable(input.now)}
+${night}Calendar: ${calendarTable(input.now)}
 Chat: "${clean(input.chatName, 60)}" (${input.chatType === "group" ? "group chat" : "direct message"})
 <open_plans>
 ${plans}

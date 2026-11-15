@@ -21,6 +21,8 @@ export interface NotifyOptions {
   replyTo?: number;
   /** Not urgent: if it is night in Sydney (before 9am or after 11pm), hold it until 9am. */
   canWait?: boolean;
+  /** Useless after this moment (e.g. news about an event that is over): if it is still waiting then, it is dropped, not sent. */
+  expiresAt?: Date;
 }
 
 /** Sends one message to the owner and returns Telegram's message id. */
@@ -63,14 +65,21 @@ export function createOutbox(deps: {
       for (;;) {
         const rows = db
           .prepare(
-            `SELECT id, text, options, attempts, kind, ref, next_attempt_at FROM outbox
+            `SELECT id, text, options, attempts, kind, ref, next_attempt_at, expires_at FROM outbox
               WHERE status = 'pending' AND (send_after IS NULL OR send_after <= ?) ORDER BY id LIMIT ?`,
           )
-          .all(clock().toISOString(), OUTBOX_BATCH) as (Row & { next_attempt_at: string })[];
+          .all(clock().toISOString(), OUTBOX_BATCH) as (Row & { next_attempt_at: string; expires_at: string | null })[];
         if (rows.length === 0) return result;
 
         let progressed = false;
         for (const row of rows) {
+          // Too late to be useful (held overnight, and the thing it is about is over): drop it.
+          if (row.expires_at && row.expires_at <= clock().toISOString()) {
+            db.prepare(`DELETE FROM outbox WHERE id = ?`).run(row.id);
+            log(`outbox #${row.id}: dropped, it expired before it could be sent`);
+            progressed = true;
+            continue;
+          }
           // Messages go out in order: if the oldest one is still waiting out its backoff, so do the rest.
           if (row.next_attempt_at > clock().toISOString()) return result;
           progressed = true;
@@ -141,7 +150,7 @@ export function createOutbox(deps: {
       return Number(
         db
           .prepare(
-            `INSERT INTO outbox (text, options, created_at, next_attempt_at, send_after, kind, ref) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO outbox (text, options, created_at, next_attempt_at, send_after, kind, ref, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             text.slice(0, MAX_MESSAGE_CHARS),
@@ -151,6 +160,7 @@ export function createOutbox(deps: {
             options.canWait ? nextNotifyTime(now).toISOString() : now.toISOString(),
             options.kind ?? null,
             options.ref ?? null,
+            options.expiresAt?.toISOString() ?? null,
           ).lastInsertRowid,
       );
     })();

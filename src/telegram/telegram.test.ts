@@ -98,6 +98,20 @@ describe("outbox", () => {
     assert.deepEqual(afterSend, [["expense_question", "7", 100]]);
   });
 
+  it("drops a held message that expired before morning, and still sends the ones that did not", async () => {
+    const f = fakeSender();
+    let now = new Date("2026-11-13T12:55:00Z"); // 11:55pm Fri 13 Nov in Sydney: too late to send, so it is held
+    const outbox = createOutbox({ db, send: f.send, now: () => now });
+    outbox.notify("news about a night that is over by morning", { canWait: true, expiresAt: new Date("2026-11-13T18:00:00Z") }); // 5am Sat
+    outbox.notify("still relevant", { canWait: true });
+    await tick();
+    assert.equal(f.sent.length, 0, "held overnight");
+    now = new Date("2026-11-13T22:00:00Z"); // 9am Sat
+    await outbox.flush();
+    assert.deepEqual(f.sent.map((m) => m.text), ["still relevant"]);
+    assert.deepEqual(outboxRows(db).map((r) => r.status), ["sent"], "the expired one is gone, not shown as failed");
+  });
+
   it("keeps a failed message and retries it with backoff, in order, until it goes through", async () => {
     const f = fakeSender();
     let now = NOON;
