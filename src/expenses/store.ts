@@ -47,6 +47,16 @@ export function findDuplicate(
 }
 
 /**
+ * The part of the request body to read an expense from. The Shortcut used to send {"raw_data": ...};
+ * it now sends the fields (merchant, amount, card, name) at the top level, so with no raw_data
+ * key the whole body is read. A raw_data key that is present (even empty) is still what counts.
+ */
+export function readableData(body: unknown): unknown {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return undefined;
+  return "raw_data" in body ? (body as { raw_data?: unknown }).raw_data : body;
+}
+
+/**
  * Store one webhook request. This is the only thing the webhook waits for, and it keeps
  * everything: a body we cannot read is stored as 'unparsed' instead of being rejected.
  * `body` is whatever JSON arrived (or {"non_json_body": "..."} if it was not JSON).
@@ -54,11 +64,7 @@ export function findDuplicate(
 export function storeExpense(db: Database.Database, body: unknown, now = new Date()): StoreResult {
   const rawPayload = JSON.stringify(body) ?? "null";
   const receivedAt = now.toISOString();
-  const rawData =
-    body && typeof body === "object" && !Array.isArray(body)
-      ? (body as { raw_data?: unknown }).raw_data
-      : undefined;
-  const parsed = parseRawData(rawData, receivedAt);
+  const parsed = parseRawData(readableData(body), receivedAt);
 
   // One transaction, so the duplicate checks and the insert cannot interleave.
   const run = db.transaction((): StoreResult => {

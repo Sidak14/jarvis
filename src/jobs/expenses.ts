@@ -6,6 +6,7 @@ import { syncExpenses } from "../expenses/sync";
 import { createExpenseWebhook } from "../expenses/webhook";
 import { recordApiCall } from "../spotify/usage";
 import { registerJob, triggerJob } from "../runner";
+import { notify } from "../telegram";
 import { CATEGORISE_JOB } from "../telegram/settings";
 import { registerWebhook } from "../webhooks";
 
@@ -43,6 +44,8 @@ export function registerExpenses(): void {
         triggerJob(SYNC_JOB);
         triggerJob(CATEGORISE_JOB); // pick a category right away (or ask on Telegram)
       },
+      // A tap we could not read is sent to Telegram straight away (not held for the morning).
+      onUnparsed: (message) => notify(`⚠️ ${message}`),
     }),
   );
   registerJob(SYNC_JOB, SYNC_CRON, ({ log }) => syncExpenses({ db, sheets, log }));

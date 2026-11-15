@@ -119,6 +119,19 @@ describe("storeExpense", () => {
   });
 });
 
+describe("top-level fields (the Shortcut's current body)", () => {
+  it("reads merchant, amount, card and name sent without raw_data", () => {
+    const db = newDb();
+    const body = { merchant: "Woolworths", amount: "$45.10", card: "Visa Debit", name: "Woolworths Metro" };
+    assert.equal(storeExpense(db, body, NOW).outcome, "stored");
+    const row = db.prepare(`SELECT merchant, amount_cents, card FROM expenses`).get();
+    assert.deepEqual({ ...(row as object) }, { merchant: "Woolworths", amount_cents: 4510, card: "Visa Debit" });
+  });
+  it("still treats an empty raw_data as unreadable", () => {
+    assert.equal(storeExpense(newDb(), { raw_data: "" }, NOW).outcome, "unparsed");
+  });
+});
+
 describe("webhook handler", () => {
   it("stores everything with 202, keeps unreadable bodies as unparsed, starts a sync once", () => {
     const db = newDb();
@@ -139,6 +152,22 @@ describe("webhook handler", () => {
     assert.ok(logs.some((l) => l.startsWith("raw body:")));
     const rows = db.prepare(`SELECT raw_payload FROM expenses`).pluck().all();
     assert.ok(rows.includes('{"non_json_body":"hello, not json"}'));
+  });
+
+  it("tells the owner about every tap it could not read, and only those", () => {
+    const db = newDb();
+    const alerts: string[] = [];
+    const hook = createExpenseWebhook({ db, onStored: () => {}, onUnparsed: (m) => alerts.push(m) });
+    const call = (body: unknown, rawText = JSON.stringify(body)) => hook({ body, rawText, log: () => {} });
+
+    call({ raw_data: "" });
+    call({ raw_data: "garbage" });
+    call(undefined, "hello, not json");
+    call(tap()); // readable: no alert
+    assert.equal(alerts.length, 3);
+    assert.match(alerts[0], /expense #1.*no details \(the data was empty\)/);
+    assert.match(alerts[1], /no merchant and amount found in: .*garbage/);
+    assert.match(alerts[2], /not JSON: hello, not json/);
   });
 });
 
