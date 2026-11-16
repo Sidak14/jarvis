@@ -296,6 +296,55 @@ views:
           name: Wi-Fi signal
         - entity: sensor.athom_garage_door_f99f26_uptime
           name: Uptime
+    - type: conditional
+      conditions:
+      - condition: state
+        entity: binary_sensor.garage_opener_reachable
+        state: 'on'
+      card:
+        type: vertical-stack
+        cards:
+        - type: tile
+          entity: sensor.garage_door_status
+          name: Garage door
+          icon: mdi:garage
+        - type: grid
+          columns: 3
+          square: false
+          cards:
+          - type: button
+            name: Open
+            icon: mdi:arrow-up-box
+            show_state: false
+            tap_action:
+              action: perform-action
+              perform_action: cover.open_cover
+              target:
+                entity_id: cover.garage_door
+              confirmation:
+                text: Open the garage door?
+          - type: button
+            name: Stop
+            icon: mdi:stop-circle
+            show_state: false
+            tap_action:
+              action: perform-action
+              perform_action: cover.stop_cover
+              target:
+                entity_id: cover.garage_door
+              confirmation:
+                text: Stop the garage door?
+          - type: button
+            name: Close
+            icon: mdi:arrow-down-box
+            show_state: false
+            tap_action:
+              action: perform-action
+              perform_action: cover.close_cover
+              target:
+                entity_id: cover.garage_door
+              confirmation:
+                text: Close the garage door?
   - type: grid
     column_span: 3
     cards:
