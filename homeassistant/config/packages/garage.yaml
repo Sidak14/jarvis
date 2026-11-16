@@ -1,0 +1,143 @@
+# Garage door state, from the tilt sensor on the door.
+#
+# The Athom opener is open-loop: it can only press the button, so its own cover always guesses ("open").
+# The Third Reality tilt sensor (on = tilted = open, off = upright = closed) tells us where the door really is.
+# Opening / closing / stopping are not something a tilt sensor can see, so they are worked out from what was
+# asked (the buttons below) and a timer:
+#
+#   sensor.garage_door_status   open | closed | opening | closing | stopping   (unavailable if the sensor is)
+#   cover.garage_door           the same, as a cover (open / close / stop buttons that check first)
+#
+# The opener may press the SAME button for open, close and stop, so the cover only sends a command that makes
+# sense: open only when closed, close only when open, stop only while moving. Anything else is ignored.
+# A remote or wall button is seen only when the door starts to open (the sensor tilts); a close from the remote
+# shows as closed when the door arrives.
+#
+# Set how long the door takes to travel in the UI: input_number.garage_travel_seconds (Settings > Devices > Helpers).
+
+input_select:
+  garage_motion:
+    name: Garage door motion
+    icon: mdi:garage
+    initial: idle
+    options:
+      - idle
+      - opening
+      - closing
+      - stopping
+
+input_number:
+  garage_travel_seconds:
+    name: Garage door travel time
+    icon: mdi:timer-outline
+    min: 5
+    max: 90
+    step: 1
+    unit_of_measurement: s
+    mode: box
+
+template:
+  - sensor:
+      - name: Garage door status
+        unique_id: garage_door_status
+        icon: >
+          {% set s = states('sensor.garage_door_status') %}
+          {{ {'open': 'mdi:garage-open', 'closed': 'mdi:garage', 'opening': 'mdi:arrow-up-box', 'closing': 'mdi:arrow-down-box', 'stopping': 'mdi:stop-circle'}.get(s, 'mdi:garage-alert') }}
+        state: >
+          {% set tilt = states('binary_sensor.third_reality_inc_3rdts01056z') %}
+          {% set motion = states('input_select.garage_motion') %}
+          {% if tilt in ['unavailable', 'unknown'] %}unavailable
+          {% elif motion != 'idle' %}{{ motion }}
+          {% elif tilt == 'on' %}open
+          {% else %}closed{% endif %}
+
+  - cover:
+      - name: Garage door
+        unique_id: garage_door_tilt
+        device_class: garage
+        availability: "{{ states('binary_sensor.third_reality_inc_3rdts01056z') not in ['unavailable', 'unknown'] }}"
+        state: >
+          {% set motion = states('input_select.garage_motion') %}
+          {% if motion in ['opening', 'closing'] %}{{ motion }}
+          {% elif is_state('binary_sensor.third_reality_inc_3rdts01056z', 'on') %}open
+          {% else %}closed{% endif %}
+        open_cover:
+          - condition: state
+            entity_id: binary_sensor.third_reality_inc_3rdts01056z
+            state: "off"
+          - condition: state
+            entity_id: input_select.garage_motion
+            state: idle
+          - action: input_select.select_option
+            target: { entity_id: input_select.garage_motion }
+            data: { option: opening }
+          - action: cover.open_cover
+            target: { entity_id: cover.athom_garage_door_f99f26_garage_door }
+        close_cover:
+          - condition: state
+            entity_id: binary_sensor.third_reality_inc_3rdts01056z
+            state: "on"
+          - condition: state
+            entity_id: input_select.garage_motion
+            state: idle
+          - action: input_select.select_option
+            target: { entity_id: input_select.garage_motion }
+            data: { option: closing }
+          - action: cover.close_cover
+            target: { entity_id: cover.athom_garage_door_f99f26_garage_door }
+        stop_cover:
+          - condition: template
+            value_template: "{{ states('input_select.garage_motion') in ['opening', 'closing'] }}"
+          - action: input_select.select_option
+            target: { entity_id: input_select.garage_motion }
+            data: { option: stopping }
+          - action: cover.stop_cover
+            target: { entity_id: cover.athom_garage_door_f99f26_garage_door }
+
+automation:
+  # How long each motion lasts, then back to idle (the sensor decides open or closed from there).
+  - id: garage_motion_ends
+    alias: Garage door motion ends
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id: input_select.garage_motion
+        to: [opening, closing, stopping]
+    actions:
+      - choose:
+          - conditions: "{{ trigger.to_state.state == 'opening' }}"
+            sequence:
+              - delay: { seconds: "{{ states('input_number.garage_travel_seconds') | int(20) }}" }
+          - conditions: "{{ trigger.to_state.state == 'closing' }}"
+            sequence:
+              # Closed is reported when the door gets there: stop as soon as it does (or a bit after the usual time).
+              - wait_for_trigger:
+                  - trigger: state
+                    entity_id: binary_sensor.third_reality_inc_3rdts01056z
+                    to: "off"
+                timeout: { seconds: "{{ (states('input_number.garage_travel_seconds') | int(20) * 1.5) | int }}" }
+                continue_on_timeout: true
+          - conditions: "{{ trigger.to_state.state == 'stopping' }}"
+            sequence:
+              - delay: { seconds: 3 }
+      - action: input_select.select_option
+        target: { entity_id: input_select.garage_motion }
+        data: { option: idle }
+
+  # The door started to open without being asked here (a remote or the wall button): it is opening.
+  - id: garage_opened_elsewhere
+    alias: Garage door opened by remote
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.third_reality_inc_3rdts01056z
+        from: "off"
+        to: "on"
+    conditions:
+      - condition: state
+        entity_id: input_select.garage_motion
+        state: idle
+    actions:
+      - action: input_select.select_option
+        target: { entity_id: input_select.garage_motion }
+        data: { option: opening }

@@ -288,9 +288,10 @@ views:
         title: Garage door opener (read-only) · 159
         show_header_toggle: false
         entities:
-        - type: simple-entity
-          entity: cover.athom_garage_door_f99f26_garage_door
+        - entity: sensor.garage_door_status
           name: Garage door
+        - entity: sensor.third_reality_inc_3rdts01056z_battery
+          name: Tilt sensor battery
         - entity: sensor.athom_garage_door_f99f26_wifi_signal_percent
           name: Wi-Fi signal
         - entity: sensor.athom_garage_door_f99f26_uptime
