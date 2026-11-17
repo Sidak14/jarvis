@@ -14,7 +14,8 @@ export const spotifyRecent = (deps: ToolDeps) =>
     risk: "read",
     timeoutMs: 4000,
     handler: (_args, ctx) => {
-      const song = (r: { name: string; artists: string }) => `${quoted(r.name, 50)} by ${quoted(r.artists, 40).slice(1, -1)}`;
+      // Just the first artist: a long list of names sounds like a longer list of songs.
+      const song = (r: { name: string; artists: string }) => `${quoted(r.name, 50)} by ${quoted(r.artists.split(",")[0], 40).slice(1, -1)}`;
       const plays = deps.db.prepare(`SELECT MAX(track_name) AS name, MAX(artists) AS artists FROM play_history GROUP BY track_id ORDER BY MAX(played_at) DESC LIMIT 5`).all() as { name: string; artists: string }[];
       const likes = deps.db.prepare(`SELECT track_name AS name FROM likes WHERE source = 'jarvis' ORDER BY liked_at DESC LIMIT 5`).all() as { name: string }[];
       const since = new Date(ctx.now.getTime() - WINDOW_DAYS * 86_400_000).toISOString();

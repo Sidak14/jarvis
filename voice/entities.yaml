@@ -23,7 +23,7 @@ lights:
   - { name: khanda light, entity: switch.shellyswitch25_c8c9a37a653a_channel_1, aliases: [khanda] }
   - { name: entrance lights, entity: switch.shellyswitch25_c8c9a375c8b2_channel_2, aliases: [entrance] }
   - { name: side lights, entity: switch.shellyswitch25_c8c9a375c8b2_channel_1 }
-  - { name: butlers pantry, entity: switch.shelly1pm_34945471a117, aliases: [pantry] }
+  - { name: butler's pantry, entity: switch.shelly1pm_34945471a117, aliases: [pantry] }
   - { name: driveway lights, entity: switch.shelly1pm_34945471ad19, aliases: [driveway] }
   - { name: frontyard bottom lights, entity: switch.shelly1pm_34945472b313, aliases: [front yard lights, frontyard lights] }
   - { name: garage lights, entity: switch.shellyswitch25_c45bbe6bd1ee_channel_2, aliases: [garage] }
