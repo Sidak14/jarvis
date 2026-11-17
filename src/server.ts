@@ -7,6 +7,7 @@ import { registerLocation } from "./jobs/location";
 import { registerGmailExpenses } from "./jobs/gmail-expenses";
 import { registerPlans } from "./jobs/plans";
 import { registerTelegram, startTelegramBot } from "./jobs/telegram";
+import { registerVoice } from "./jobs/voice";
 import { registerHeartbeat } from "./jobs/heartbeat";
 import { registerSpotifyLikes } from "./jobs/spotify-likes";
 import { stopAllJobs } from "./runner";
@@ -20,6 +21,7 @@ registerLocation();
 registerGmailExpenses();
 registerTelegram();
 registerPlans();
+registerVoice();
 
 const stopBot = startTelegramBot();
 

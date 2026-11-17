@@ -34,13 +34,14 @@ export function buildAssistant(): Record<string, unknown> {
   const base = JSON.parse(fs.readFileSync(path.join(ROOT, "voice", "assistant.json"), "utf8")) as Record<string, unknown> & { model: Record<string, unknown> };
   const url = `https://${config.PUBLIC_HOST}${config.VOICE_PATH_PREFIX}`;
   const { systemPrompt, ...model } = base.model as { systemPrompt: string } & Record<string, unknown>;
+  const { extraTools, ...rest } = base as Record<string, unknown> & { extraTools?: unknown[] };
   const server = (path: string) => ({ url: `${url}${path}`, timeoutSeconds: 10, ...serverAuth() });
   return {
-    ...base,
+    ...rest,
     model: {
       ...model,
       messages: [{ role: "system", content: systemPrompt }],
-      tools: registry.definitions().map((t) => ({ type: "function", function: t, server: server("/tools") })),
+      tools: [...registry.definitions().map((t) => ({ type: "function", function: t, server: server("/tools") })), ...(extraTools ?? [])],
     },
     server: server("/events"),
   };

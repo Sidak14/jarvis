@@ -5,6 +5,7 @@ import { db } from "./db";
 import { isHomeNetworkRequest } from "./fridge/access";
 import { homeRoutes } from "./fridge/routes";
 import { gmailRoutes } from "./gmail/routes";
+import { haWebhookRoutes } from "./jobs/voice";
 import { voiceRoutes } from "./voice/routes";
 import { calendarRoutes, plansRoutes } from "./plans/routes";
 import { triggerJob } from "./runner";
@@ -41,6 +42,7 @@ app.use("*", async (c, next) => {
 
 // Voice (Vapi calls these with its own bearer secret; see voice/routes.ts). Mounted under both prefixes, so whichever one
 // Cloudflare lets through works: /webhook/voice is covered by the webhook bypass, /voice needs its own.
+app.route("/webhook/ha", haWebhookRoutes);
 app.route("/webhook/voice", voiceRoutes);
 app.route("/voice", voiceRoutes);
 

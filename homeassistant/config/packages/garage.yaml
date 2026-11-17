@@ -89,3 +89,26 @@ script:
       - action: input_select.select_option
         target: { entity_id: input_select.garage_motion }
         data: { option: idle }
+
+# Tell Jarvis when the garage has been left open. Jarvis then phones me (and keeps trying, within its own rules) until it is
+# closed. Jarvis checks the garage itself too, every 5 minutes, so a missed webhook only delays the call.
+rest_command:
+  jarvis_garage_open:
+    url: "http://127.0.0.1:8080/webhook/ha/garage-open"
+    method: post
+    headers:
+      Authorization: !secret jarvis_webhook_authorization
+    content_type: "application/json"
+    payload: '{"minutes": 10}'
+    timeout: 20
+
+automation:
+  - id: garage_open_ten_minutes
+    alias: Garage left open for 10 minutes, tell Jarvis
+    triggers:
+      - trigger: state
+        entity_id: sensor.garage_door_status
+        to: "open"
+        for: "00:10:00"
+    actions:
+      - action: rest_command.jarvis_garage_open

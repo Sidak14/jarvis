@@ -39,6 +39,11 @@ export function registerCall(db: Database.Database, call: { id: string; directio
   );
 }
 
+/** An outbound call is recorded before Vapi has given it an id; once Vapi has, the row takes the real id. */
+export function renameCall(db: Database.Database, from: string, to: string): void {
+  db.prepare(`UPDATE voice_calls SET call_id = ? WHERE call_id = ?`).run(to, from);
+}
+
 /**
  * Is this call one Jarvis knows? Known calls (outbound ones Jarvis started, inbound ones it accepted) are fine. A call it has
  * not seen is accepted only if it is an inbound call from my own number; anything else is refused.
