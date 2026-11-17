@@ -3,6 +3,7 @@ import { beforeEach, describe, it } from "node:test";
 import Database from "better-sqlite3";
 import { createLocationTables } from "./schema";
 import { applyLocation, currentLocation, parseLocation } from "./store";
+import { openGarageOnArrival } from "./arrive";
 import { createLocationWebhook } from "./webhook";
 
 const T0 = new Date("2026-11-17T01:00:00Z");
@@ -47,5 +48,34 @@ describe("location", () => {
     const bad = await hook({ body: undefined, rawText: "hello", log: () => {} });
     assert.equal(bad.status, 400);
     assert.equal(currentLocation(db)!.place, "Home");
+  });
+});
+
+describe("arriving home opens the garage", () => {
+  const ha = (state: string, opener = true) => {
+    const pressed: string[] = [];
+    return { pressed, client: { garage: async () => ({ state, opener }), pressGarage: async (a: string) => void pressed.push(a) } as never };
+  };
+  it("presses Open only when the door is closed and the opener is reachable", async () => {
+    const cases: [string, boolean, string, string[]][] = [
+      ["closed", true, "opened", ["open"]],
+      ["open", true, "already open", []],
+      ["opening", true, "moving", []],
+      ["closed", false, "unreadable", []],
+      ["unavailable", true, "unreadable", []],
+    ];
+    for (const [state, opener, result, pressed] of cases) {
+      const h = ha(state, opener);
+      assert.equal(await openGarageOnArrival(h.client), result);
+      assert.deepEqual(h.pressed, pressed);
+    }
+  });
+  it("only 'enter home' triggers it", async () => {
+    let n = 0;
+    const db = new Database(":memory:");
+    createLocationTables(db);
+    const hook = createLocationWebhook({ db, now: () => T0, onArriveHome: () => void n++ });
+    for (const [place, event] of [["gym", "enter"], ["home", "leave"], ["home", "enter"]]) await hook({ body: { kind: "location", place, event }, rawText: "", log: () => {} });
+    assert.equal(n, 1);
   });
 });
