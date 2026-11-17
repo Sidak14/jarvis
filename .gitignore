@@ -10,3 +10,4 @@ logs/
 cloudflared/*.json
 secrets/
 screenshots/
+voice/.vapi-ids.json

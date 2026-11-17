@@ -3,6 +3,7 @@ import { createExpenseTables } from "./expenses/schema";
 import { createGmailTables } from "./gmail/schema";
 import { createLocationTables } from "./location/schema";
 import { createPlansTables } from "./plans/schema";
+import { createVoiceTables } from "./voice/schema";
 import { createSpotifyTables } from "./spotify/schema";
 import { addColumnIfMissing } from "./sqlite";
 import { createTelegramTables } from "./telegram/schema";
@@ -67,6 +68,7 @@ export function createAllTables(db: Database.Database): void {
   createTelegramTables(db);
   createPlansTables(db);
   createLocationTables(db);
+  createVoiceTables(db);
 
 
 }

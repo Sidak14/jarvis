@@ -95,6 +95,24 @@ const schema = z.object({
     .default("")
     .transform((v) => v.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean)),
 
+  // Voice: phone calls with Jarvis through Vapi + Twilio (see README "Voice"). Everything here is optional until you set it up.
+  VOICE_ENABLED: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
+  VAPI_API_KEY: z.string().min(10).optional(),
+  VAPI_PHONE_NUMBER_ID: z.string().min(10).optional(),
+  /** Vapi sends this as "Authorization: Bearer <secret>" to /voice/*. At least 32 characters. */
+  VAPI_WEBHOOK_SECRET: z.string().min(32, "must be at least 32 characters").optional(),
+  /** Optional: id of a Bearer-token credential made in the Vapi dashboard. Without it the secret is sent as a header Vapi stores. */
+  VAPI_CREDENTIAL_ID: z.string().min(5).optional(),
+  /** My phone number, E.164 (+614...). The only number Jarvis will talk to (and call). */
+  OWNER_PHONE: z.string().regex(/^\+\d{8,15}$/, "must look like +61405123456").optional(),
+  /** scrypt hash of the spoken PIN, made by `npm run voice:set-pin`. */
+  VOICE_PIN_HASH: z.string().min(20).optional(),
+  VOICE_MONTHLY_CAP_USD: z.coerce.number().positive().default(10),
+  /** dry = the voice tools say what they would do to Home Assistant but change nothing. */
+  VOICE_HA_WRITES: z.enum(["dry", "live"]).default("dry"),
+  /** The path Vapi calls: /voice/* works only if Cloudflare lets it through; /webhook/voice/* is covered by the existing webhook bypass. */
+  VOICE_PATH_PREFIX: z.string().regex(/^\/[a-z/]+$/).default("/webhook/voice"),
+
   // Google Sheets for expenses. Optional: without them expenses are stored and the sync waits.
   GOOGLE_SHEET_ID: z.string().min(1).optional(),
   // Path to the service account's JSON key (outside git, chmod 600).
@@ -141,6 +159,11 @@ export function redactedConfig(): Record<string, string | number | boolean | und
     TELEGRAM_BOT_TOKEN: config.TELEGRAM_BOT_TOKEN ? "***" : undefined,
     TELEGRAM_OWNER_ID: config.TELEGRAM_OWNER_ID ? "***" : undefined,
     HA_TOKEN: config.HA_TOKEN ? "***" : undefined,
+    VAPI_API_KEY: config.VAPI_API_KEY ? "***" : undefined,
+    VAPI_WEBHOOK_SECRET: config.VAPI_WEBHOOK_SECRET ? "***" : undefined,
+    VAPI_CREDENTIAL_ID: config.VAPI_CREDENTIAL_ID ? "***" : undefined,
+    OWNER_PHONE: config.OWNER_PHONE ? "***" : undefined,
+    VOICE_PIN_HASH: config.VOICE_PIN_HASH ? "***" : undefined,
     DASHBOARD_EMAILS: config.DASHBOARD_EMAILS.length ? `${config.DASHBOARD_EMAILS.length} email(s)` : "none",
   };
 }
