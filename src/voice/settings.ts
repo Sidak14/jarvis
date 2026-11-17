@@ -16,3 +16,4 @@ export const FIRST_MESSAGE = "Jarvis here. What do you need?";
 /** What a stranger hears (the call is never connected to the model). */
 export const STRANGER_MESSAGE = "Sorry, I can't help with this call. Goodbye.";
 export const DISABLED_MESSAGE = "Voice control is switched off right now.";
+export const LIMIT_MESSAGE = "The monthly voice limit has been reached.";

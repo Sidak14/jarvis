@@ -6,10 +6,12 @@ import { Hono } from "hono";
 import { config, ROOT } from "../config";
 import { db } from "../db";
 import { notify } from "../telegram";
-import { acceptCall, finishCall, logToolCall, maskPhone, registerCall, samePhone } from "./calls";
+import { budget, budgetAlert, recordUsage } from "./budget";
+import { acceptCall, finishCall, logToolCall, maskPhone, registerCall, samePhone, type CallRow } from "./calls";
 import { registry as realRegistry } from "./tools";
 import type { ToolRegistry } from "./registry";
-import { DISABLED_MESSAGE, STRANGER_MESSAGE } from "./settings";
+import { CallSecurity } from "./session";
+import { DISABLED_MESSAGE, LIMIT_MESSAGE, STRANGER_MESSAGE } from "./settings";
 import { messageOf, parseCall, parseEndReport, parseToolCalls, toolResponse } from "./vapi";
 
 // POST <prefix>/tools   every tool call from the assistant (one endpoint, dispatched by name)
@@ -21,13 +23,18 @@ const sha = (s: string) => createHash("sha256").update(s).digest();
 export interface VoiceDeps {
   db: Database.Database;
   registry: ToolRegistry;
+  security: CallSecurity;
   enabled: boolean;
   /** Without a secret nothing is accepted. */
   secret: string | undefined;
   ownerPhone: string | undefined;
+  /** US$ per month; at 100% the tools stop answering. */
+  capUsd: number;
   /** The saved Vapi assistant to connect an accepted caller to. */
   assistantId: () => string | null;
-  notify: (text: string, options?: { dedupeKey?: string; cooldownMs?: number }) => unknown;
+  notify: (text: string, options?: { dedupeKey?: string; cooldownMs?: number; canWait?: boolean }) => unknown;
+  /** Called with the finished call (for the alert follow-up: Telegram if nobody answered). */
+  onCallEnded?: (call: CallRow) => void;
   now?: () => Date;
   log?: (m: string) => void;
 }
@@ -37,6 +44,8 @@ const isAuthorized = (header: string | undefined, secret: string | undefined): b
   if (!secret || !supplied) return false;
   return timingSafeEqual(sha(supplied), sha(secret)); // hashing first makes the lengths equal
 };
+
+const money = (n: number | null) => (n === null ? "" : `, $${n.toFixed(2)}`);
 
 export function createVoiceApp(deps: VoiceDeps): Hono {
   const app = new Hono();
@@ -60,10 +69,11 @@ export function createVoiceApp(deps: VoiceDeps): Hono {
       log("tool call refused: unknown call");
       return answer("I can't do that on this call.");
     }
+    if (budget(deps.db, now(), deps.capUsd).level === "capped") return answer(LIMIT_MESSAGE);
     const items = [];
     for (const r of requests) {
       const started = performance.now();
-      const outcome = await deps.registry.run(r.name, r.args, { callId: call!.id, now: now() });
+      const outcome = await deps.registry.run(r.name, r.args, { callId: call!.id, now: now(), security: deps.security });
       logToolCall(deps.db, call!.id, r.name, outcome.ok ? "ok" : "error", performance.now() - started, r.args, now());
       items.push(outcome.ok ? { id: r.id, name: r.name, result: JSON.stringify({ say: outcome.result.speech, data: outcome.result.data ?? null }) } : { id: r.id, name: r.name, error: outcome.error });
     }
@@ -90,7 +100,15 @@ export function createVoiceApp(deps: VoiceDeps): Hono {
     }
 
     if (message.type === "end-of-call-report" && call) {
-      finishCall(deps.db, call.id, parseEndReport(message), now());
+      const row = finishCall(deps.db, call.id, parseEndReport(message), now());
+      if (row) {
+        if (row.cost_usd !== null) recordUsage(deps.db, row.cost_usd, now());
+        const mins = row.duration_s === null ? "" : ` (${row.duration_s}s${money(row.cost_usd)})`;
+        deps.notify(`📞 ${row.summary ?? "Call ended."}${mins}`, { canWait: true });
+        const warning = budgetAlert(deps.db, now(), deps.capUsd);
+        if (warning) deps.notify(warning);
+        deps.onCallEnded?.(row);
+      }
     }
     return c.json({});
   });
@@ -99,7 +117,7 @@ export function createVoiceApp(deps: VoiceDeps): Hono {
 }
 
 /** The assistant id that `npm run voice:push` saved. */
-function savedAssistantId(): string | null {
+export function savedAssistantId(): string | null {
   try {
     const ids = JSON.parse(fs.readFileSync(path.join(ROOT, "voice", ".vapi-ids.json"), "utf8")) as { assistantId?: string };
     return ids.assistantId ?? null;
@@ -108,13 +126,28 @@ function savedAssistantId(): string | null {
   }
 }
 
+export const security = new CallSecurity({
+  now: () => new Date(),
+  pinHash: () => config.VOICE_PIN_HASH,
+  onLocked: () => notify("🔒 Three wrong PINs on a Jarvis phone call. Dangerous tools are locked for that call."),
+});
+
+let onCallEnded: ((call: CallRow) => void) | undefined;
+/** Set by the alerts module (so routes and alerts do not import each other). */
+export const setCallEndedHandler = (fn: (call: CallRow) => void) => {
+  onCallEnded = fn;
+};
+
 export const voiceRoutes = createVoiceApp({
   db,
   registry: realRegistry,
+  security,
   enabled: config.VOICE_ENABLED,
   secret: config.VAPI_WEBHOOK_SECRET,
   ownerPhone: config.OWNER_PHONE,
+  capUsd: config.VOICE_MONTHLY_CAP_USD,
   assistantId: savedAssistantId,
   notify,
+  onCallEnded: (call) => onCallEnded?.(call),
   log: (m) => console.log(`[voice] ${m}`),
 });

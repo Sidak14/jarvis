@@ -28,5 +28,24 @@ export function createVoiceTables(db: Database.Database): void {
       arg_names   TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_voice_tool_calls_call ON voice_tool_calls (call_id);
+
+    -- Small facts (which month the 80% warning was sent, ...).
+    CREATE TABLE IF NOT EXISTS voice_state (
+      key   TEXT PRIMARY KEY,
+      value TEXT
+    );
+
+    -- Something important that Jarvis phones me about, and how many times it has tried. One open episode per kind.
+    CREATE TABLE IF NOT EXISTS alert_episodes (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind            TEXT NOT NULL,
+      started_at      TEXT NOT NULL,
+      last_attempt_at TEXT,
+      attempts_today  INTEGER NOT NULL DEFAULT 0,
+      attempts_day    TEXT,
+      resolved_at     TEXT,
+      detail          TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_alert_episodes_open ON alert_episodes (kind, resolved_at);
   `);
 }
