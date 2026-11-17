@@ -71,7 +71,7 @@ describe("voice routes", () => {
   });
 
   it("a tool that does not exist does not run; bad arguments are refused", async () => {
-    const unknown = (await (await post(make(), "/tools", toolMsg("open_garage"))).json()) as { results: { error?: string }[] };
+    const unknown = (await (await post(make(), "/tools", toolMsg("launch_missiles"))).json()) as { results: { error?: string }[] };
     assert.ok(unknown.results[0].error);
     const strict = new ToolRegistry([defineTool({ name: "t", description: "d", schema: z.object({ n: z.number() }), risk: "read", timeoutMs: 1000, handler: () => ({ speech: "ok" }) })]);
     const bad = (await (await post(make({ registry: strict }), "/tools", toolMsg("t", { args: { n: "x" } }))).json()) as { results: { error?: string }[] };

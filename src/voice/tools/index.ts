@@ -1,4 +1,5 @@
 import { ToolRegistry } from "../registry";
+import { closeGarage, lightsSet, openGarage } from "./actions";
 import { calendarToday } from "./calendar";
 import type { ToolDeps } from "./deps";
 import { expensesSummary } from "./expenses";
@@ -11,5 +12,5 @@ import { spotifyRecent } from "./spotify";
 
 /** Every tool the voice assistant has. Add one here and `npm run voice:push` gives it to the assistant. */
 export function buildRegistry(deps: ToolDeps): ToolRegistry {
-  return new ToolRegistry([ping, verifyPin, garageStatus(deps), homeStatus(deps), calendarToday(deps), expensesSummary(deps), plansUpcoming(deps), spotifyRecent(deps)]);
+  return new ToolRegistry([ping, verifyPin, garageStatus(deps), homeStatus(deps), calendarToday(deps), expensesSummary(deps), plansUpcoming(deps), spotifyRecent(deps), closeGarage(deps), openGarage(deps), lightsSet(deps)]);
 }
