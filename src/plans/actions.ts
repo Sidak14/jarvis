@@ -3,6 +3,7 @@ import { oneLine } from "../telegram/format";
 import type { Outbox } from "../telegram/outbox";
 import { dayKey, dayLabel, formatClock, NIGHT_ENDS_HOUR, startOfDay, zonedTime, zoned } from "../telegram/time";
 import type { BusyEvent, CalendarClient } from "./calendar";
+import { markAsked, placesToAsk, questionText, resolveLocation } from "./places";
 import {
   CALENDAR_CREATES_PER_DAY,
   CALENDAR_MIN_CONFIDENCE,
@@ -12,7 +13,7 @@ import {
 import {
   addStance,
   allPlans,
-  eventVersion,
+  eventVersion as planEventVersion,
   getPlan,
   planCode,
   planVersion,
@@ -81,7 +82,10 @@ export function wantsEvent(p: Plan): boolean {
   return p.my_stance === "committed" && p.plan_status === "confirmed" && p.date_certainty === "exact" && !!p.date && !!p.start_time && p.confidence >= CALENDAR_MIN_CONFIDENCE;
 }
 
-function eventInput(p: Plan) {
+/** The event's version also changes when the saved address of its place does. */
+const eventVersion = (db: Database.Database, p: Plan) => planEventVersion({ ...p, location: resolveLocation(db, p.location) });
+
+function eventInput(db: Database.Database, p: Plan) {
   const t = eventTimes(p)!;
   const lines = [`Created by Jarvis from ${p.source_chat_name}`];
   if (p.what) lines.push(p.what);
@@ -90,7 +94,7 @@ function eventInput(p: Plan) {
   if (p.bring) lines.push(`Bring: ${p.bring}`);
   if (p.url) lines.push(p.url);
   for (const n of p.notes) lines.push(`- ${n}`);
-  return { planId: planCode(p.id), title: p.title, description: lines.join("\n"), location: p.location, startIso: t.start.toISOString(), endIso: t.end.toISOString() };
+  return { planId: planCode(p.id), title: p.title, description: lines.join("\n"), location: resolveLocation(db, p.location), startIso: t.start.toISOString(), endIso: t.end.toISOString() };
 }
 
 /** Messages about a plan are useless once its night is over (5am the day after), so they expire then. */
@@ -127,7 +131,7 @@ export async function createEventNow(deps: ActionDeps, plan: Plan, opts: { force
   const { db, calendar, now } = deps;
   const pid = planCode(plan.id);
   if (deps.dryRun) {
-    if (recordAction(db, plan.id, "would_create", eventVersion(plan), describe(plan), true, now)) deps.log(`would add to calendar: ${describe(plan)} (${pid})`);
+    if (recordAction(db, plan.id, "would_create", eventVersion(db, plan), describe(plan), true, now)) deps.log(`would add to calendar: ${describe(plan)} (${pid})`);
     return "would";
   }
   if (!calendar) return "no_calendar";
@@ -147,12 +151,12 @@ export async function createEventNow(deps: ActionDeps, plan: Plan, opts: { force
   // A restart may have happened after the event was made but before it was saved: look first.
   const existing = await calendar.findByPlan(pid);
   if (existing) {
-    updatePlan(db, plan.id, { event_id: existing.id, event_link: existing.link, event_version: eventVersion(plan), cal_state: "created" }, now);
+    updatePlan(db, plan.id, { event_id: existing.id, event_link: existing.link, event_version: eventVersion(db, plan), cal_state: "created" }, now);
     saveSnapshot(db, plan, now);
     return "adopted";
   }
 
-  const input = eventInput(plan);
+  const input = eventInput(db, plan);
   if (!opts.force) {
     const clashes = await calendar.overlapping(input.startIso, input.endIso, pid);
     if (clashes.length) {
@@ -167,7 +171,7 @@ export async function createEventNow(deps: ActionDeps, plan: Plan, opts: { force
 
   const ev = await calendar.create(input);
   recordAction(db, plan.id, "create", `${now.toISOString()}:${ev.id}`, ev.id, false, now);
-  updatePlan(db, plan.id, { event_id: ev.id, event_link: ev.link, event_version: eventVersion(plan), cal_state: "created" }, now);
+  updatePlan(db, plan.id, { event_id: ev.id, event_link: ev.link, event_version: eventVersion(db, plan), cal_state: "created" }, now);
   saveSnapshot(db, plan, now);
   deps.notify(`Added ${describe(plan)}${plan.location ? ` at ${oneLine(plan.location, 60)}` : ""} to your calendar (from ${oneLine(plan.source_chat_name, 40)}).\nWrong? Reply /undo ${pid}`, planNote(plan));
   return "created";
@@ -231,17 +235,17 @@ async function handlePlan(deps: ActionDeps, plan: Plan, sum: ActionSummary): Pro
 
   // The calendar.
   if (plan.event_id) {
-    if (wantsEvent(plan) && plan.event_version !== eventVersion(plan)) {
+    if (wantsEvent(plan) && plan.event_version !== eventVersion(db, plan)) {
       if (deps.dryRun) {
-        if (recordAction(db, plan.id, "would_update", eventVersion(plan), describe(plan), true, now)) {
+        if (recordAction(db, plan.id, "would_update", eventVersion(db, plan), describe(plan), true, now)) {
           deps.log(`would update calendar event: ${describe(plan)}`);
           sum.would++;
         }
       } else if (deps.calendar) {
         const before = lastSnapshot(db, plan.id);
-        const ev = await deps.calendar.update(plan.event_id, eventInput(plan));
-        updatePlan(db, plan.id, { event_link: ev.link, event_version: eventVersion(plan) }, now);
-        recordAction(db, plan.id, "update", `${eventVersion(plan)}`, null, false, now);
+        const ev = await deps.calendar.update(plan.event_id, eventInput(db, plan));
+        updatePlan(db, plan.id, { event_link: ev.link, event_version: eventVersion(db, plan) }, now);
+        recordAction(db, plan.id, "update", `${eventVersion(db, plan)}`, null, false, now);
         saveSnapshot(db, plan, now);
         sum.updated++;
         // The event is always kept up to date, but you are only told about a new day, time or venue.
@@ -309,6 +313,13 @@ export async function runActions(deps: ActionDeps): Promise<ActionSummary> {
       await handlePlan(deps, getPlan(deps.db, plan.id)!, sum);
     } catch (err) {
       sum.errors.push(`${planCode(plan.id)}: ${(err as Error).message}`);
+    }
+  }
+  // A new private place: ask once what its address is (the answer is saved on the Places list).
+  if (!deps.dryRun) {
+    for (const place of placesToAsk(deps.db)) {
+      markAsked(deps.db, place.id, deps.now);
+      deps.notify(questionText(place), { kind: "place_question", ref: String(place.id), canWait: true });
     }
   }
   if (sum.errors.length && !deps.dryRun) {

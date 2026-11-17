@@ -12,6 +12,7 @@ import { createHaikuDetector } from "../plans/detect";
 import { calendarAuth } from "../plans/index";
 import { pollChats } from "../plans/ingest";
 import { restoreFromFile, writePlanFiles } from "../plans/markdown";
+import { createPhotoDescriber } from "../plans/photos";
 import { runDetection } from "../plans/pipeline";
 import { COOLDOWN_BEEPER_MS, POLL_CRON, POLL_JOB } from "../plans/settings";
 import { setState } from "../plans/store";
@@ -66,12 +67,13 @@ export function registerPlans(): void {
         throw new Error(reason);
       }
 
-      // 2. Read new messages (local, free).
-      const ingest = await pollChats({ db, reader, dataDir, allChats: config.PLANS_ALL_CHATS, backfill: config.PLANS_BACKFILL, log });
+      // 2. Read new messages (local, free). New photos are read once by the AI, if it is set up.
+      const llm = config.AI_GATEWAY_API_KEY ? createGatewayLlm({ apiKey: config.AI_GATEWAY_API_KEY, db, feature: "plans" }) : null;
+      const describePhoto = llm ? createPhotoDescriber(reader, llm) : null;
+      const ingest = await pollChats({ db, reader, dataDir, allChats: config.PLANS_ALL_CHATS, backfill: config.PLANS_BACKFILL, describePhoto, log });
       if (ingest.allowlistError) log(ingest.allowlistError);
 
       // 3. Detect plans in chats that have gone quiet (the only step that costs money).
-      const llm = config.AI_GATEWAY_API_KEY ? createGatewayLlm({ apiKey: config.AI_GATEWAY_API_KEY, db, feature: "plans" }) : null;
       const detection = await runDetection({ db, detector: llm ? createHaikuDetector(llm) : null, log });
 
       // 4. Calendar events and pings (or, in dry run, a record of what would happen).

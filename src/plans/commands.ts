@@ -1,14 +1,16 @@
 import type Database from "better-sqlite3";
 import { oneLine } from "../telegram/format";
 import { createEventNow, eventTimes, ownerStance, removeEventNow, whenLabel, type ActionDeps } from "./actions";
+import { placesText } from "./places";
 import { allPlans, getPlan, parsePlanCode, planCode, type Plan } from "./store";
 
 // The Telegram commands for plans. Each one is a fixed word plus a plan code like P-0003: nothing
 // typed is ever run. There are no buttons (Beeper does not show them), so Undo, Add back and the
 // rest are commands.
 
-export const PLAN_COMMANDS = ["/undo", "/addback", "/addanyway", "/keep", "/remove", "/plans"] as const;
+export const PLAN_COMMANDS = ["/undo", "/addback", "/addanyway", "/keep", "/remove", "/plans", "/places"] as const;
 export const PLAN_HELP = `/plans - upcoming plans and what needs you
+/places - saved places and their addresses (reply to my question to set one)
 /undo P-0001 - remove an event Jarvis added
 /addback P-0001 - put a plan back on the calendar
 /addanyway P-0001 - add a plan even though it clashes
@@ -38,6 +40,7 @@ export function plansText(db: Database.Database, dryRun: boolean): string {
 export async function runPlanCommand(deps: ActionDeps, word: string, arg: string): Promise<string | null> {
   if (!isPlanCommand(word)) return null;
   if (word === "/plans") return plansText(deps.db, deps.dryRun);
+  if (word === "/places") return placesText(deps.db);
   const id = parsePlanCode(arg.split(/\s+/)[0] ?? "");
   const plan = id === null ? undefined : getPlan(deps.db, id);
   if (!plan) return `Which plan? Use the code from my message, for example ${word} P-0001`;

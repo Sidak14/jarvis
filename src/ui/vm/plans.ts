@@ -3,6 +3,7 @@ import { config } from "../../config";
 import { whenLabel, wantsEvent } from "../../plans/actions";
 import { loadAllowlist } from "../../plans/allowlist";
 import { ALLOWED_BRIDGES } from "../../plans/settings";
+import { listPlaces } from "../../plans/places";
 import { allPlans, getState, planCode, type Plan } from "../../plans/store";
 import { dayKey } from "../../telegram/time";
 import { buildAiUsage, type AiUsageVM } from "./ai";
@@ -105,6 +106,7 @@ export interface PlansVM {
   proposed: PlanVM[];
   past: PlanVM[];
   would: WouldVM[];
+  places: { name: string; address: string | null }[];
   showWould: boolean;
 }
 
@@ -129,6 +131,7 @@ export function buildPlans(ctx: UiContext): PlansVM {
     proposed: vm(proposed),
     past: vm(past),
     would: would.map((w) => ({ at: new Date(w.created_at), plan: planCode(w.plan_id), action: w.kind.replace("would_", "would "), detail: w.detail ?? "" })),
+    places: listPlaces(db).map((p) => ({ name: p.name, address: p.address })),
     showWould: ctx.flags.plansDryRun,
   };
 }

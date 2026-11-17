@@ -15,6 +15,8 @@ import { AiCapError, LlmError, type Llm } from "../ai/llm";
 import { buildPrompt, categoriseExpenses } from "./categorise";
 import { applyReply, attachQuestionMessage, questionText, recategorise, setCategory } from "./questions";
 import { buildRecap, formatRecap, sendRecapIfDue } from "./recap";
+import { createPlansTables } from "../plans/schema";
+import { ensurePlace, findPlace, attachPlaceMessage } from "../plans/places";
 import { createTelegramTables } from "./schema";
 import { BACKOFF_MINUTES, OUTBOX_MAX_ATTEMPTS } from "./settings";
 import { getState } from "./state";
@@ -43,6 +45,7 @@ function newDb() {
   createExpenseTables(db);
   createGmailTables(db);
   createTelegramTables(db);
+  createPlansTables(db);
   return db;
 }
 
@@ -303,6 +306,13 @@ describe("bot", () => {
     for (let i = 0; i < 6; i++) await handleUpdate(deps({ limiter }), text(OWNER, "/help"));
     assert.equal(replies().filter((t) => t.startsWith("Jarvis commands")).length, 3);
     assert.equal(getState(db, "rate_limited_updates"), "3");
+  });
+
+  it("a reply to the address question saves the address", async () => {
+    ensurePlace(db, "Rijul's house", NOON);
+    attachPlaceMessage(db, findPlace(db, "Rijul's house")!.id, 300);
+    await handleUpdate(deps(), text(OWNER, "5 Real Rd, Sydney", { reply_to_message: { message_id: 300 } }));
+    assert.equal(findPlace(db, "Rijul's house")!.address, "5 Real Rd, Sydney");
   });
 
   it("a reply is matched to the right expense by the question's message id", async () => {

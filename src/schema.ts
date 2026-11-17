@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import { createExpenseTables } from "./expenses/schema";
 import { createGmailTables } from "./gmail/schema";
+import { createLocationTables } from "./location/schema";
 import { createPlansTables } from "./plans/schema";
 import { createSpotifyTables } from "./spotify/schema";
 import { addColumnIfMissing } from "./sqlite";
@@ -65,6 +66,7 @@ export function createAllTables(db: Database.Database): void {
   createGmailTables(db);
   createTelegramTables(db);
   createPlansTables(db);
+  createLocationTables(db);
 
 
 }

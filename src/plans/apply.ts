@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import { dayKey, eveningDay, zoned } from "../telegram/time";
 import type { DetectionResult } from "./detect";
+import { ensurePlace, findPlace } from "./places";
 import {
   LINK_HIGH,
   LINK_OUTSIDER,
@@ -180,6 +181,8 @@ function applyOne(db: Database.Database, ctx: BatchContext, r0: DetectionResult,
   if (r.action === "none") return;
   const evidence = (r.evidence_message_ids ?? []).filter((id) => ctx.messages.has(id));
   const fields = sanitise(r, ctx.now);
+  // A private place (a home) is kept under one saved name, so its address is asked for once and used every time.
+  if (fields.location && (r.private_place === true || findPlace(db, fields.location))) fields.location = ensurePlace(db, fields.location, ctx.now).name;
 
   // Which plan is this about?
   const refCode = r.plan_id ?? r.linked_plan_id;

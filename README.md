@@ -108,6 +108,15 @@ writes a row to a Google Sheet. The goal is never losing an expense, and making 
   `secrets/google-sa.json` (`chmod 600`, `secrets/` is git-ignored), share the Sheet with the
   service account's email as Editor, put the two values in `.env`, restart.
 
+## Location (phone -> where I am)
+
+`POST /webhook/location` (same `Authorization: Bearer` secret as the other webhooks) with
+`{"kind": "location", "place": "home|work|gym", "event": "enter|leave"}`. Made for three iPhone Shortcuts
+automations (Arrive / Leave) per place. The current place is stored in `location_now`: entering a place
+sets it to Home, Work or Gym, and leaving it sets "Other" (only if you were still there, so a late
+"leave work" after "enter gym" changes nothing). Every report is also kept in `location_events`.
+Anything that is not that dictionary gets a 400. Code: `src/location/`.
+
 ## Expenses from invoice emails (Gmail)
 
 Every hour the `gmail-expenses` job reads new Gmail and adds payment receipts to the same
@@ -230,6 +239,18 @@ to, adds them to your Google Calendar. `/plans` shows everything.
   message time, across all linked chats; "what time?" never changes it. Status (proposed / confirmed /
   cancelled) is whether it is really going ahead. A plan goes on the calendar only if committed +
   confirmed + exact day and time + confident, and nothing overlaps (any calendar). Max 5 new events a day.
+  A place is not needed: a plan with a day and time but no venue is still confirmed.
+- **Photos:** a photo in a direct message (never a group) is read, but only when that DM has 3 photos or fewer lately (more is a photo dump, so all of them are ignored). A photo (an invitation, a flyer, a screenshot of a booking) is read once
+  by the AI (at most 5 new photos per 5-minute poll, JPEG/PNG/WebP up to 5 MB, not GIFs or stickers). Only a
+  short description is kept, as `[Photo: ...]`, and it goes through plan detection like a message from the sender.
+  Photos that are not about a plan are forgotten after that one look. The photo itself is never saved, but it
+  is sent to the AI to be read. Needs `AI_GATEWAY_API_KEY`; without it photos are ignored.
+- **Saved places:** a home ("Home" is yours, "Rijul's house", ...) is saved once by name. The model is shown
+  only the saved names (never the addresses) and reuses one when a plan is there. When a plan is at a
+  new private place, Jarvis asks on Telegram for its address; reply to that message and it is saved and
+  used as the calendar event's location (the event is updated). `/places` lists them, and they show on
+  the Plans page. Restaurants and other public venues are not saved: the model gives their address
+  when it is sure, otherwise the name and suburb (Google Calendar looks it up).
 - **Telegram (no buttons, Beeper does not show them):** each message ends with a command:
   `/undo P-0001`, `/addback P-0001`, `/addanyway P-0001` (after a clash), `/keep` / `/remove P-0001`
   (after you said maybe), `/plans`. One ping per plan version if you have not replied.

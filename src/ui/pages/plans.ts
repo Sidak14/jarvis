@@ -57,6 +57,17 @@ ${Section("Needs my attention", list(vm.needs, now, "Nothing needs a reply."), v
 ${Section("Clashes", list(vm.clashes, now, "No clashes with your calendar.", (p) => h`<p class="plan-why">Reply /addanyway ${p.id} on Telegram to add it anyway.</p>`), vm.clashes.length)}
 ${Section("Upcoming, I'm going", list(vm.upcoming, now, "Nothing coming up yet.", (p) => (p.onCalendar ? undefined : h`<p class="plan-why">Not on the calendar yet: needs confirmed, an exact day and time.</p>`)), vm.upcoming.length)}
 ${Section("Proposed / waiting", list(vm.proposed, now, "No open proposals."), vm.proposed.length)}
+${Section(
+  "Saved places",
+  DataTable({
+    caption: "Places Jarvis knows (the AI only sees the names). Reply to its question on Telegram to set an address.",
+    columns: [{ label: "Place" }, { label: "Address" }],
+    rows: vm.places.map((p) => ({ cells: [p.name, p.address ?? h`<span class="muted">not given yet</span>`] })),
+    empty: EmptyState("No saved places yet", "Jarvis asks on Telegram when a plan is at somewhere new, like a friend's house."),
+    sortable: false,
+  }),
+  vm.places.length,
+)}
 <details class="fold"><summary>Past, cancelled or declined (${vm.past.length})</summary><div class="stack">${list(vm.past, now, "Nothing here yet.")}</div></details>
 ${vm.showWould ? Section("Dry run: what Jarvis would do", would) : ""}`;
   return PageLayout({ title: "Plans", active: "plans", body, now });

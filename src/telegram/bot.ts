@@ -4,6 +4,7 @@ import { LlmJsonError } from "../ai/json";
 import { updateSchema, type TelegramApi } from "./api";
 import { money } from "./format";
 import { runCommand } from "./commands";
+import { placeByQuestionMessage, saveAddress } from "../plans/places";
 import { insertManualExpense, LOG_USAGE, parseLog } from "./log";
 import type { Outbox } from "./outbox";
 import { applyReply, findExpenseByQuestionMessage, recategorise } from "./questions";
@@ -131,6 +132,13 @@ export async function handleUpdate(deps: BotDeps, raw: unknown): Promise<void> {
   }
 
   // Plain text only means something as the answer to one of my questions (a reply to it).
+  // A reply to "what is the address of X?" saves the address.
+  const place = message.reply_to_message ? placeByQuestionMessage(db, message.reply_to_message.message_id) : undefined;
+  if (place) {
+    const saved = saveAddress(db, place.id, text);
+    notify(saved ? `Saved: ${saved.name} is at ${saved.address}. I'll use it on your calendar events.` : "I couldn't read an address in that. Reply to my question again with the address.");
+    return;
+  }
   const expenseId = message.reply_to_message ? findExpenseByQuestionMessage(db, message.reply_to_message.message_id) : undefined;
   if (expenseId === undefined) {
     notify("I only understand replies to my questions, and a few commands. Try /help.");

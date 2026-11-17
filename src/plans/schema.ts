@@ -127,6 +127,17 @@ export function createPlansTables(db: Database.Database): void {
       UNIQUE (plan_id, kind, key)
     );
 
+    -- Saved private places ("Home", "Rijul's house"). The address comes from you on Telegram.
+    -- asked_message_id is the Telegram question, so your reply to it is the address.
+    CREATE TABLE IF NOT EXISTS places (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      name             TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      address          TEXT,
+      asked_message_id INTEGER,
+      asked_at         TEXT,
+      created_at       TEXT NOT NULL
+    );
+
     -- The Google Calendar login (calendar.events + calendar.readonly). One row.
     CREATE TABLE IF NOT EXISTS calendar_auth (
       id            INTEGER PRIMARY KEY CHECK (id = 1),

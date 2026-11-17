@@ -31,6 +31,15 @@ export const BACKFILL_DAYS = 7;
 export const KEEP_MESSAGE_IDS_DAYS = 30;
 export const MAX_TEXT_CHARS = 1000; // per message sent to the model
 
+// ---- Photos (invitations, flyers, screenshots): an AI reads each new photo once, and only the short description is kept
+export const PHOTO_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+/** Most photos read in one poll (the rest wait for the next one). */
+export const PHOTOS_PER_POLL = 5;
+export const PHOTO_DESCRIPTION_CHARS = 700;
+/** Photos are only read in direct messages, and only when the DM has this many or fewer (more is a photo dump, not an invitation). */
+export const MAX_PHOTOS_IN_DM = 3;
+
 // ---- What the model is shown
 export const PLANS_UPCOMING_DAYS = 30;
 export const PLANS_RECENT_DAYS = 14;

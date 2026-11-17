@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import { AiCapError, LlmError } from "../ai/llm";
+import { listPlaces } from "./places";
 import { LlmJsonError } from "../ai/json";
 import { dayKey, startOfDay, zoned } from "../telegram/time";
 import { applyResults, type BatchMessage } from "./apply";
@@ -131,6 +132,7 @@ export async function runDetection(deps: {
       now,
       chatName,
       chatType,
+      places: listPlaces(db).map((x) => x.name),
       plans: plans.map(
         (p): PromptPlan => ({
           code: `P-${String(p.id).padStart(4, "0")}`,

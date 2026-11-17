@@ -2,10 +2,10 @@ import type Database from "better-sqlite3";
 import { AI_MODEL, GATEWAY_URL } from "./settings";
 import { aiCapReason, recordAiCall } from "./usage";
 
-/** The only thing the rest of Jarvis knows about the LLM: text in, text out. */
+/** The only thing the rest of Jarvis knows about the LLM: text in, text out (plus one optional image). */
 export interface Llm {
   /** `maxTokens` limits the length of the reply (default 500; plan detection asks for more). */
-  complete(system: string, user: string, options?: { maxTokens?: number }): Promise<string>;
+  complete(system: string, user: string, options?: { maxTokens?: number; image?: { mime: string; base64: string } }): Promise<string>;
 }
 
 /** The call was not made because a spend/call cap is reached. */
@@ -39,7 +39,15 @@ export function createGatewayLlm(opts: {
               max_tokens: options?.maxTokens ?? 500,
               messages: [
                 { role: "system", content: system },
-                { role: "user", content: user },
+                {
+                  role: "user",
+                  content: options?.image
+                    ? [
+                        { type: "image_url", image_url: { url: `data:${options.image.mime};base64,${options.image.base64}` } },
+                        { type: "text", text: user },
+                      ]
+                    : user,
+                },
               ],
             }),
             signal: AbortSignal.timeout(30_000),

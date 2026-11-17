@@ -2,6 +2,7 @@ import { config } from "../config";
 import { db } from "../db";
 import { createTelegramApi } from "./api";
 import { createOutbox } from "./outbox";
+import { attachPlaceMessage } from "../plans/places";
 import { attachQuestionMessage } from "./questions";
 
 /** The Telegram API client, or null until TELEGRAM_BOT_TOKEN is set. */
@@ -16,6 +17,7 @@ export const outbox = createOutbox({
   onSent: (row, messageId) => {
     // A question was delivered: remember which message asked about which expense.
     if (row.kind === "expense_question" && row.ref) attachQuestionMessage(db, Number(row.ref), messageId);
+    if (row.kind === "place_question" && row.ref) attachPlaceMessage(db, Number(row.ref), messageId);
   },
   log: (m) => console.log(`[telegram] ${m}`),
 });

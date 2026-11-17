@@ -6,7 +6,9 @@ import { beforeEach, describe, it } from "node:test";
 import Database from "better-sqlite3";
 import { LlmError } from "../ai/llm";
 import type { Outbox } from "../telegram/outbox";
-import { runActions, createEventNow, eventTimes, type ActionDeps } from "./actions";
+import { createPhotoDescriber, type DescribePhoto } from "./photos";
+import { attachPlaceMessage, ensurePlace, findPlace, listPlaces, placeByQuestionMessage, saveAddress } from "./places";
+import { runActions, createEventNow, eventTimes, wantsEvent, type ActionDeps } from "./actions";
 import { applyResults, checkDate, checkTime, type BatchMessage } from "./apply";
 import http from "node:http";
 import { loadAllowlist } from "./allowlist";
@@ -213,6 +215,56 @@ describe("applying what the model found", () => {
       const p = buildPrompt({ now: LATE, chatName: "x", chatType: "group", plans: [], messages: [] } as never);
       assert.match(p.user, /before 5am: "tonight" means the evening of 2026-11-13/);
       assert.match(p.system, /between midnight and 5am/);
+    });
+  });
+
+  it("needs no place to be confirmed", () => {
+    apply("G", "Gym", [msg("m1", { me: true })], [result({ plan_status: "confirmed", location: "", date: "2026-11-14", start_time: "14:00" })]);
+    assert.equal(wantsEvent(plan(db, 1)), true);
+    assert.match(buildPrompt({ now: NOW, chatName: "x", chatType: "group", plans: [], messages: [] }).system, /A place is NOT needed/);
+  });
+
+  describe("saved places", () => {
+    it("shows the model place names only, with Home always there", () => {
+      ensurePlace(db, "Rijul's house", NOW);
+      saveAddress(db, findPlace(db, "Rijul's house")!.id, "5 Secret St, Sydney");
+      const p = buildPrompt({ now: NOW, chatName: "x", chatType: "group", plans: [], messages: [], places: listPlaces(db).map((x) => x.name) });
+      assert.match(p.user, /<saved_places>\nHome\nRijul's house\n<\/saved_places>/);
+      assert.ok(!p.user.includes("Secret"), "the address is never sent to the model");
+    });
+
+    it("a new private place is saved and asked about once; the reply saves the address and updates the event", async () => {
+      apply("G", "Footy boys", [msg("m1", { me: true })], [result({ location: "Rijul's house", private_place: true })]);
+      assert.equal(findPlace(db, "Rijul's house")!.address, null);
+      const cal = new FakeCalendar();
+      const { sent, notify } = fakeNotify();
+      await runActions(deps(db, notify, cal));
+      await runActions(deps(db, notify, cal));
+      const asks = sent.filter((s) => /address of "Rijul's house"/.test(s.text));
+      assert.equal(asks.length, 1, "asked once");
+      assert.equal(cal.events.length, 1);
+      assert.equal(cal.events[0].location, "Rijul's house", "no address yet: the name is used");
+      // The Telegram question was delivered as message 77, and I reply to it.
+      attachPlaceMessage(db, findPlace(db, "Rijul's house")!.id, 77);
+      saveAddress(db, placeByQuestionMessage(db, 77)!.id, "  5 Real Rd, Sydney NSW 2000 ");
+      await runActions(deps(db, notify, cal));
+      assert.equal(cal.events[0].location, "5 Real Rd, Sydney NSW 2000");
+      assert.equal(plan(db, 1).location, "Rijul's house", "the plan keeps the place name");
+    });
+
+    it("a name that matches a saved place (any capitals) reuses it, and public venues are not saved", () => {
+      ensurePlace(db, "Home", NOW);
+      apply("G", "Footy boys", [msg("m1", { me: true })], [result({ location: "home" })]);
+      assert.equal(plan(db, 1).location, "Home");
+      apply("H", "Pub crew", [msg("m2", { me: true })], [result({ title: "Dinner", location: "Mr Wong, 3 Bridge Ln, Sydney", private_place: false })]);
+      assert.deepEqual(listPlaces(db).map((x) => x.name), ["Home"]);
+    });
+
+    it("dry run does not ask", async () => {
+      apply("G", "Footy boys", [msg("m1", { me: true })], [result({ location: "Sajid's house", private_place: true })]);
+      const { sent, notify } = fakeNotify();
+      await runActions(deps(db, notify, null, { dryRun: true }));
+      assert.equal(sent.length, 0);
     });
   });
 
@@ -784,6 +836,7 @@ class FakeReader implements BeeperReader {
   async listChats() { return this.chats; }
   async getChat(id: string) { return this.chats.find((c) => c.id === id)!; }
   async recentMessages(chatId: string, since: string) { return (this.messages[chatId] ?? []).filter((m) => m.ts > since); }
+  async fetchPhoto() { return { mime: "image/jpeg", base64: "AAAA" }; }
 }
 const group = (id: string, name: string, members: string[]): BeeperChat => ({ id, accountId: "instagramgo.1", name, type: "group", lastActivity: iso(NOW.getTime()), members: [{ id: "me", isSelf: true }, ...members.map((m) => ({ id: m, isSelf: false }))], membersComplete: true });
 const dmChat = (id: string, name: string, other: string): BeeperChat => ({ id, accountId: "instagramgo.1", name, type: "single", lastActivity: iso(NOW.getTime()), members: [{ id: "me", isSelf: true }, { id: other, isSelf: false }], membersComplete: true });
@@ -802,7 +855,7 @@ describe("reading chats", () => {
     reader = new FakeReader();
     reader.chats = [group("G", "Footy boys", ["sam", "jo"]), group("H", "Work", ["bob"]), dmChat("D1", "Sam", "sam"), dmChat("D2", "Stranger", "zed")];
   });
-  const poll = (o: { now?: Date; all?: boolean; backfill?: boolean } = {}) => pollChats({ db, reader, dataDir: dir, allChats: o.all ?? false, backfill: o.backfill ?? false, now: o.now ?? NOW });
+  const poll = (o: { now?: Date; all?: boolean; backfill?: boolean; describePhoto?: DescribePhoto } = {}) => pollChats({ db, reader, dataDir: dir, allChats: o.all ?? false, backfill: o.backfill ?? false, describePhoto: o.describePhoto, now: o.now ?? NOW });
   const chatsRead = () => (db.prepare(`SELECT chat_id FROM plan_chat_state ORDER BY chat_id`).all() as { chat_id: string }[]).map((r) => r.chat_id);
 
   it("reads only allowlisted chats plus DMs with members of an allowlisted group", async () => {
@@ -811,6 +864,67 @@ describe("reading chats", () => {
     assert.equal(r.eligible, 2);
     assert.deepEqual(db.prepare(`SELECT why FROM plan_chat_state ORDER BY chat_id`).pluck().all(), ["dm-of-member", "allowlist"]);
     assert.deepEqual(db.prepare(`SELECT user_id FROM plan_members WHERE chat_id = 'G' AND is_self = 0 ORDER BY user_id`).pluck().all(), ["jo", "sam"]);
+  });
+
+  describe("photos", () => {
+    const photoMsg = (id: string, text = "", chat = "D1"): BeeperMessage => ({ ...bm(chat, id, iso(NOW.getTime() + 1000), text), photo: { url: `mxc://x/${id}`, mime: "image/jpeg" } });
+    const rows = () => db.prepare(`SELECT id, status, text FROM plan_messages ORDER BY id`).all();
+
+    it("a photo about a plan becomes a described message; one that is not is remembered and never sent on", async () => {
+      await poll(); // first start sets the horizon
+      reader.messages["D1"] = [photoMsg("p1"), photoMsg("p2")];
+      let calls = 0;
+      const describePhoto: DescribePhoto = async (_c, m) => (++calls, m.id === "p1" ? "[Photo: Aryan's birthday, Sat 21 Nov 7pm]" : null);
+      await poll({ describePhoto });
+      assert.deepEqual(rows(), [{ id: "p1", status: "pending", text: "[Photo: Aryan's birthday, Sat 21 Nov 7pm]" }, { id: "p2", status: "skipped", text: null }]);
+      await poll({ describePhoto });
+      assert.equal(calls, 2, "each photo is read once");
+    });
+
+    it("photos are ignored in groups, and in a DM with more than 3 photos", async () => {
+      await poll();
+      let calls = 0;
+      const describePhoto: DescribePhoto = async () => (++calls, "[Photo: x]");
+      reader.messages["G"] = [photoMsg("g1", "", "G")];
+      reader.messages["D1"] = [photoMsg("a"), photoMsg("b"), photoMsg("c"), photoMsg("d")];
+      await poll({ describePhoto });
+      assert.equal(calls, 0);
+      assert.ok((rows() as { status: string }[]).every((r) => r.status === "skipped"));
+      reader.messages["D1"] = [photoMsg("a"), photoMsg("b"), photoMsg("c")];
+      reader.messages["G"] = [];
+      await poll({ describePhoto });
+      assert.equal(calls, 0, "the ones already seen stay ignored");
+    });
+
+    it("three photos or fewer in a DM are read", async () => {
+      await poll();
+      reader.messages["D1"] = [photoMsg("a"), photoMsg("b"), photoMsg("c")];
+      let calls = 0;
+      await poll({ describePhoto: async () => (++calls, "[Photo: x]") });
+      assert.equal(calls, 3);
+    });
+
+    it("a failed read is tried again next time, and without AI photos are left alone", async () => {
+      await poll();
+      reader.messages["D1"] = [photoMsg("p1")];
+      await poll({ describePhoto: async () => { throw new Error("AI down"); } });
+      assert.deepEqual(rows(), []);
+      await poll();
+      assert.deepEqual(rows(), []);
+      await poll({ describePhoto: async () => "[Photo: x]" });
+      assert.equal(rows().length, 1);
+    });
+
+    it("the describer turns the AI's reply into text, and NONE into nothing", async () => {
+      const reader2 = { fetchPhoto: async () => ({ mime: "image/jpeg", base64: "AAAA" }) };
+      const seen: unknown[] = [];
+      const say = (reply: string) => createPhotoDescriber(reader2, { complete: async (_s, _u, o) => (seen.push(o?.image?.mime), reply) });
+      const m = photoMsg("p1", "come!");
+      assert.equal(await say("Birthday party for Aryan, Sat 21 Nov, 7pm, 5 Real Rd")(  "G", m), "[Photo: Birthday party for Aryan, Sat 21 Nov, 7pm, 5 Real Rd] come!");
+      assert.equal(await say("NONE")("G", m), "come!");
+      assert.equal(await say("none")("G", photoMsg("p2")), null);
+      assert.deepEqual(seen, ["image/jpeg", "image/jpeg", "image/jpeg"]);
+    });
   });
 
   it("'all chats' mode reads everything", async () => {
@@ -990,8 +1104,8 @@ describe("safety", () => {
     }
     // the reader only exposes reads
     const reader = fs.readFileSync(path.join(dir, "beeper.ts"), "utf8");
-    const iface = reader.slice(reader.indexOf("export interface BeeperReader"), reader.indexOf("type SdkChat"));
-    assert.deepEqual([...iface.matchAll(/^\s+(\w+)\(/gm)].map((m) => m[1]), ["check", "listChats", "getChat", "recentMessages"]);
+    const iface = reader.slice(reader.indexOf("export interface BeeperReader"), reader.indexOf("/** The first plain photo"));
+    assert.deepEqual([...iface.matchAll(/^\s+(\w+)\(/gm)].map((m) => m[1]), ["check", "listChats", "getChat", "recentMessages", "fetchPhoto"]);
   });
 });
 

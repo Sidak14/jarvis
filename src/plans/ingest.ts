@@ -1,14 +1,17 @@
 import type Database from "better-sqlite3";
 import { loadAllowlist } from "./allowlist";
-import type { BeeperChat, BeeperReader } from "./beeper";
+import type { BeeperChat, BeeperMessage, BeeperReader } from "./beeper";
 import {
   BACKFILL_DAYS,
   KEEP_MESSAGE_IDS_DAYS,
   MAX_PAGES_PER_CHAT,
+  MAX_PHOTOS_IN_DM,
   MAX_TEXT_CHARS,
   MEMBERS_REFRESH_MS,
+  PHOTOS_PER_POLL,
   RESCAN_WINDOW_MS,
 } from "./settings";
+import type { DescribePhoto } from "./photos";
 import { getState, setState } from "./store";
 
 // Polling: read new messages (and new reactions) from Beeper into plan_messages as 'pending'.
@@ -52,6 +55,8 @@ export async function pollChats(deps: {
   dataDir: string;
   allChats: boolean;
   backfill: boolean;
+  /** Reads a photo with the AI. Without it, photos are ignored. */
+  describePhoto?: DescribePhoto | null;
   now?: Date;
   log?: (m: string) => void;
 }): Promise<IngestResult> {
@@ -59,6 +64,7 @@ export async function pollChats(deps: {
   const now = deps.now ?? new Date();
   const log = deps.log ?? (() => {});
   const horizon = ensureHorizon(db, deps.backfill, now);
+  let photosLeft = PHOTOS_PER_POLL;
   const result: IngestResult = { chatsPolled: 0, eligible: 0, newMessages: 0, newReactions: 0, allowlistError: null };
 
   const chats = await reader.listChats();
@@ -114,7 +120,31 @@ export async function pollChats(deps: {
       const firstLook = !polledBefore;
       const since = firstLook && deps.backfill ? horizon : windowStart;
       const messages = await reader.recentMessages(chat.id, since, firstLook && deps.backfill ? MAX_PAGES_PER_CHAT * 5 : MAX_PAGES_PER_CHAT);
-      const counts = storeMessages(db, chat.id, messages, horizon, now);
+      const readable: BeeperMessage[] = [];
+      // Photos are read only in a DM with at most 3 photos lately; in groups, or a DM full of photos, they are ignored.
+      const mayReadPhotos = chat.type === "single" && messages.filter((m) => m.photo).length <= MAX_PHOTOS_IN_DM;
+      for (const m of messages) {
+        if (!m.photo) {
+          readable.push(m);
+          continue;
+        }
+        // A photo is read once, when it is new. If that fails or the poll's limit is reached it is simply tried again next time.
+        const known = db.prepare(`SELECT 1 FROM plan_messages WHERE chat_id = ? AND id = ?`).get(chat.id, m.id);
+        if (known || m.ts < horizon || !deps.describePhoto) continue;
+        if (!mayReadPhotos) {
+          readable.push({ ...m, text: "", skip: true }); // remembered, so it is not looked at again
+          continue;
+        }
+        if (photosLeft <= 0) continue;
+        photosLeft--;
+        try {
+          const text = await deps.describePhoto(chat.id, m);
+          readable.push(text ? { ...m, text } : { ...m, text: "", skip: true });
+        } catch (err) {
+          log(`could not read a photo in ${chat.name}: ${(err as Error).message}`);
+        }
+      }
+      const counts = storeMessages(db, chat.id, readable, horizon, now);
       result.newMessages += counts.messages;
       result.newReactions += counts.reactions;
       upsertChat.run(chat.id, chat.name, chat.type, why, now.toISOString());
@@ -158,8 +188,8 @@ export function storeMessages(
       const isNew = !find.get(chatId, m.id);
       const old = m.ts < horizon;
       if (isNew) {
-        insertMessage.run(chatId, m.id, m.senderId, clip(m.senderName, 60), m.isMe ? 1 : 0, m.ts, old ? null : clip(m.text, MAX_TEXT_CHARS), old ? "baseline" : "pending", now.toISOString());
-        if (!old) counts.messages++;
+        insertMessage.run(chatId, m.id, m.senderId, clip(m.senderName, 60), m.isMe ? 1 : 0, m.ts, old || m.skip ? null : clip(m.text, MAX_TEXT_CHARS), old ? "baseline" : m.skip ? "skipped" : "pending", now.toISOString());
+        if (!old && !m.skip) counts.messages++;
       }
       for (const r of m.reactions) {
         if (seenReaction.run(chatId, m.id, r.participantId, r.key).changes === 0) continue;
