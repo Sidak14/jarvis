@@ -3,7 +3,7 @@ import { h, raw, type Html } from "../ui/html";
 // The HTML files of the home screen. Each page is an empty frame that its script fills from /dashboard/api/...
 // Samsung Family Hub browsers are old: plain HTML and CSS, no framework, nothing fancy (see public/*.js).
 
-export const HOME_ASSET_VERSION = "7";
+export const HOME_ASSET_VERSION = "8";
 
 type Tab = "home" | "lights" | "tv" | "cameras";
 const TABS: { key: Tab; label: string; href: string }[] = [
