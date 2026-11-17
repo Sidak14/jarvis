@@ -1,45 +1,49 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Hono, type Context } from "hono";
-import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { config, ROOT } from "../config";
-import { createAuth, SESSION_IDLE_MS, type FridgeAuth } from "./auth";
+import { db } from "../db";
+import { currentLocation } from "../location/store";
+import { calendarAuth } from "../plans/index";
+import { createCalendarClient } from "../plans/calendar";
+import { checkAccess, createHomeIps, dashboardLogin, type AccessDeps } from "./access";
+import type { GarageAction } from "./garage";
 import { haClient, type HaClient } from "./ha";
 import { LIGHTS, lightById } from "./lights";
-import { fridgePage } from "./page";
+import { homePage } from "./page";
+import { weekBusy, type DayBusy } from "./week";
 
-// The kitchen fridge screen: /fridge. Unlike the dashboards it is NOT behind dashboardAccess (the fridge can't log in
-// to Cloudflare Access), so it protects itself: the code is checked on the server (auth.ts) and only a live session
-// can read or switch the lights in lights.ts. Only requests addressed to this Mac or to our own hostname are served.
+// The home screen, /dashboard: the next 7 days (times busy), where people are, the lights, and the garage door.
+// Made for the kitchen fridge (a Samsung Family Hub) but it works on any screen. Who may open it: see access.ts.
+// Everything here is private and live: never cached, never framed, never leaks a referrer.
 
-const COOKIE = "fridge";
+export interface Person {
+  name: string;
+  /** "Home" | "Work" | "Gym" | "Out", or null when not known yet */
+  where: string | null;
+}
 
-export interface FridgeDeps {
-  /** The unlock code. Without one the whole page is off (404). */
-  code: string | undefined;
-  /** Without one the lights can't be read or switched (the page says so). */
+export interface HomeDeps {
+  access: AccessDeps;
+  /** Without one the lights and the garage can't be read or switched (the page says so). */
   ha: HaClient | null;
-  /** Host headers we answer to: this Mac and the public hostname. Anything else is refused. */
-  hosts: string[];
-  now?: () => number;
+  people: () => Person[];
+  /** The next 7 days of busy times, or an error message for the page. */
+  week: () => Promise<DayBusy[]>;
   publicDir?: string;
 }
 
 const ASSETS: Record<string, string> = {
-  "dashboard.css": "text/css; charset=utf-8",
   "fridge.css": "text/css; charset=utf-8",
   "fridge.js": "text/javascript; charset=utf-8",
 };
 
-export function createFridgeApp(deps: FridgeDeps): Hono {
+export function createHomeApp(deps: HomeDeps): Hono {
   const app = new Hono();
-  const auth: FridgeAuth | null = deps.code ? createAuth({ code: deps.code, now: deps.now }) : null;
   const publicDir = deps.publicDir ?? path.join(ROOT, "public");
 
-  // Everything here is private and live: never cached, never framed, never leaks a referrer.
+  app.use("*", dashboardLogin(deps.access));
   app.use("*", async (c, next) => {
-    if (!deps.hosts.includes(c.req.header("host") ?? "")) return c.text("Forbidden", 403);
-    if (!auth) return c.text("Not found", 404);
     await next();
     c.header("Cache-Control", "no-store");
     c.header("X-Frame-Options", "DENY");
@@ -48,19 +52,11 @@ export function createFridgeApp(deps: FridgeDeps): Hono {
     c.header("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
   });
 
-  const client = (c: Context): string => c.req.header("cf-connecting-ip") ?? "local";
-  const isHttps = (c: Context): boolean => c.req.header("x-forwarded-proto") === "https";
   // The page's own requests carry this header; a form on another site can't add it, which closes cross-site posts.
   const fromOurPage = (c: Context): boolean => c.req.header("x-fridge") === "1";
-  const live = (c: Context): boolean => auth!.check(getCookie(c, COOKIE));
 
-  function setSession(c: Context, token: string): void {
-    setCookie(c, COOKIE, token, { httpOnly: true, sameSite: "Strict", path: "/fridge", secure: isHttps(c), maxAge: Math.floor(SESSION_IDLE_MS / 1000) });
-  }
+  app.get("/", (c) => c.html(homePage()));
 
-  app.get("/", (c) => c.html(fridgePage({ idleMs: SESSION_IDLE_MS })));
-
-  // Only these three files, read from /public (the page links them; the CSS is the dashboard's own, so it matches).
   app.get("/assets/:file", (c) => {
     const name = c.req.param("file");
     const type = ASSETS[name];
@@ -71,43 +67,30 @@ export function createFridgeApp(deps: FridgeDeps): Hono {
     return c.body(fs.readFileSync(file, "utf8"));
   });
 
-  app.post("/unlock", async (c) => {
-    if (!fromOurPage(c)) return c.json({ ok: false }, 403);
-    const body = (await c.req.json().catch(() => null)) as { keys?: unknown } | null;
-    const result = auth!.attempt(client(c), typeof body?.keys === "string" ? body.keys : "");
-    if (result.ok) {
-      setSession(c, result.token);
-      return c.json({ ok: true });
-    }
-    if (result.retryAfterSec) return c.json({ ok: false, retryAfterSec: result.retryAfterSec }, 429);
-    return c.json({ ok: false }, 401);
+  // Lights, garage and people: polled every few seconds.
+  app.get("/api/state", async (c) => {
+    const people = deps.people();
+    if (!deps.ha) return c.json({ people, error: "Home Assistant isn't set up" });
+    const ha = deps.ha;
+    const [lights, garage] = await Promise.all([
+      ha.states(LIGHTS.map((l) => l.entity)).then((s) => LIGHTS.map((l) => ({ id: l.id, name: l.name, icon: l.icon, state: s[l.entity] ?? "unavailable" }))).catch(() => null),
+      ha.garage().catch(() => null),
+    ]);
+    return c.json({ people, lights, garage, error: lights === null && garage === null ? "Home Assistant isn't answering" : undefined });
   });
 
-  app.post("/lock", (c) => {
-    if (!fromOurPage(c)) return c.json({ ok: false }, 403);
-    auth!.revoke(getCookie(c, COOKIE));
-    deleteCookie(c, COOKIE, { path: "/fridge" });
-    return c.json({ ok: true });
-  });
-
-  // Lets the page ask "am I already unlocked?" (after a refresh) without an error response.
-  app.get("/api/session", (c) => c.json({ unlocked: live(c) }));
-
-  app.get("/api/lights", async (c) => {
-    if (!live(c)) return c.json({ error: "locked" }, 401);
-    if (!deps.ha) return c.json({ error: "Home Assistant isn't set up" }, 503);
+  // Busy times: from Google Calendar, so slower and changes rarely.
+  app.get("/api/week", async (c) => {
     try {
-      const states = await deps.ha.states(LIGHTS.map((l) => l.entity));
-      return c.json({ lights: LIGHTS.map((l) => ({ id: l.id, name: l.name, icon: l.icon, state: states[l.entity] ?? "unavailable" })) });
-    } catch {
-      return c.json({ error: "Home Assistant isn't answering" }, 502);
+      return c.json({ days: await deps.week() });
+    } catch (err) {
+      return c.json({ error: (err as Error).message }, 502);
     }
   });
 
   // The body says on or off (not "toggle"), so a double tap can't flip it twice.
   app.post("/api/lights/:id", async (c) => {
     if (!fromOurPage(c)) return c.json({ error: "bad request" }, 403);
-    if (!live(c)) return c.json({ error: "locked" }, 401);
     const light = lightById(c.req.param("id"));
     if (!light) return c.json({ error: "unknown light" }, 404);
     const body = (await c.req.json().catch(() => null)) as { on?: unknown } | null;
@@ -116,18 +99,59 @@ export function createFridgeApp(deps: FridgeDeps): Hono {
     try {
       await deps.ha.setSwitch(light.entity, body.on);
     } catch (err) {
-      console.error(`[fridge] could not switch ${light.id}:`, (err as Error).message);
+      console.error(`[home] could not switch ${light.id}:`, (err as Error).message);
       return c.json({ error: "Home Assistant isn't answering" }, 502);
     }
-    console.log(`[fridge] ${light.name} -> ${body.on ? "on" : "off"}`);
+    console.log(`[home] ${light.name} -> ${body.on ? "on" : "off"} (${checkAccess(c, deps.access).verdict})`);
+    return c.json({ ok: true });
+  });
+
+  app.post("/api/garage", async (c) => {
+    if (!fromOurPage(c)) return c.json({ error: "bad request" }, 403);
+    const body = (await c.req.json().catch(() => null)) as { action?: unknown } | null;
+    if (body?.action !== "open" && body?.action !== "close") return c.json({ error: "bad request" }, 400);
+    if (!deps.ha) return c.json({ error: "Home Assistant isn't set up" }, 503);
+    try {
+      await deps.ha.pressGarage(body.action as GarageAction);
+    } catch (err) {
+      console.error("[home] could not press the garage:", (err as Error).message);
+      return c.json({ error: "Home Assistant isn't answering" }, 502);
+    }
+    const who = checkAccess(c, deps.access);
+    console.log(`[home] garage ${body.action} (${who.verdict}${who.email ? ` ${who.email}` : ""})`);
     return c.json({ ok: true });
   });
 
   return app;
 }
 
-export const fridgeRoutes = createFridgeApp({
-  code: config.FRIDGE_CODE,
+// ---- the real one
+const homeIps = createHomeIps({ extra: config.DASHBOARD_HOME_IPS, log: (m) => console.log(`[home] ${m}`) });
+void homeIps.refresh();
+
+const WEEK_CACHE_MS = 5 * 60_000;
+let weekCache: { at: number; days: DayBusy[] } | null = null;
+
+export const homeRoutes = createHomeApp({
+  access: {
+    localHosts: [`127.0.0.1:${config.PORT}`, `localhost:${config.PORT}`],
+    publicHost: config.PUBLIC_HOST,
+    emails: config.DASHBOARD_EMAILS,
+    homeIps: homeIps.get,
+    log: (m) => console.log(`[home] ${m}`),
+  },
   ha: config.HA_TOKEN ? haClient(config.HA_URL, config.HA_TOKEN) : null,
-  hosts: [`127.0.0.1:${config.PORT}`, `localhost:${config.PORT}`, config.PUBLIC_HOST],
+  people: () => {
+    const now = currentLocation(db);
+    return [{ name: "Gurveer", where: now ? (now.place === "Other" ? "Out" : now.place) : null }];
+  },
+  async week() {
+    if (weekCache && Date.now() - weekCache.at < WEEK_CACHE_MS) return weekCache.days;
+    if (!calendarAuth.isConnected()) throw new Error("Google Calendar isn't connected");
+    const now = new Date();
+    const end = new Date(now.getTime() + 8 * 86_400_000);
+    const spans = await createCalendarClient(calendarAuth).overlapping(new Date(now.getTime() - 86_400_000).toISOString(), end.toISOString());
+    weekCache = { at: Date.now(), days: weekBusy(spans, now) };
+    return weekCache.days;
+  },
 });

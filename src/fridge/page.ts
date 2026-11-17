@@ -1,48 +1,46 @@
-import { ASSET_VERSION } from "../ui/components";
 import { h } from "../ui/html";
-import { CODE_LENGTH } from "./auth";
 
-// The one HTML file of the fridge screen. It holds the lock screen and an empty "home" that fridge.js fills with the
-// lights AFTER the code is accepted, so the names of the lights are not in the page source while it is locked.
+// The one HTML file of the home screen. It is an empty frame: fridge.js fills it from /dashboard/api/state and /api/week.
 // Samsung Family Hub browsers are old: plain HTML and CSS, no framework, nothing fancy (see public/fridge.js).
 
-export const FRIDGE_ASSET_VERSION = "2";
+export const HOME_ASSET_VERSION = "3";
 
-const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
-
-export function fridgePage(opts: { idleMs: number }): string {
-  const dots = Array.from({ length: CODE_LENGTH }, () => h`<span class="fr-dot"></span>`);
-  const keys = KEYS.map((k) => h`<button type="button" class="fr-key" data-key="${k}">${k}</button>`);
+export function homePage(): string {
   return h`<!doctype html>
 <html lang="en-AU"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="color-scheme" content="dark">
 <meta name="robots" content="noindex">
-<title>Fridge · Jarvis</title>
-<link rel="stylesheet" href="/fridge/assets/dashboard.css?v=${ASSET_VERSION}">
-<link rel="stylesheet" href="/fridge/assets/fridge.css?v=${FRIDGE_ASSET_VERSION}">
-<script src="/fridge/assets/fridge.js?v=${FRIDGE_ASSET_VERSION}" defer></script>
-</head><body class="fridge" data-idle-ms="${opts.idleMs}" data-code-length="${CODE_LENGTH}">
+<title>Home · Jarvis</title>
+<link rel="stylesheet" href="/dashboard/assets/fridge.css?v=${HOME_ASSET_VERSION}">
+<script src="/dashboard/assets/fridge.js?v=${HOME_ASSET_VERSION}" defer></script>
+</head><body class="home">
+<div class="screen">
 
-<main id="lock" class="fr-lock">
-  <div class="fr-clock"><p class="fr-time num" data-clock="time">&nbsp;</p><p class="fr-date" data-clock="date">&nbsp;</p></div>
-  <section class="fr-panel" aria-label="Enter code">
-    <header class="fr-panel-head"><span class="brand-mark" aria-hidden="true">J</span><h1 class="fr-title">Enter code</h1></header>
-    <div class="fr-dots" id="dots" aria-hidden="true">${dots}</div>
-    <p class="fr-msg" id="lock-msg" role="status" aria-live="polite">&nbsp;</p>
-    <div class="fr-keypad" id="keypad">${keys}</div>
+  <div class="top">
+    <section class="card week" aria-label="Next 7 days">
+      <div class="week-head"><h2>Next 7 days</h2><span class="week-today" id="week-today">&nbsp;</span></div>
+      <p class="week-sub">Times Gurveer is busy</p>
+      <div class="days" id="days"></div>
+    </section>
+    <section class="people" id="people" aria-label="Who is where"></section>
+  </div>
+
+  <section class="card lights" aria-label="Lights">
+    <h2 class="label">Lights</h2>
+    <div class="lights-grid" id="lights"></div>
   </section>
-</main>
 
-<main id="home" class="fr-home" hidden>
-  <header class="fr-home-head">
-    <div class="fr-clock fr-clock-sm"><p class="fr-time num" data-clock="time">&nbsp;</p><p class="fr-date" data-clock="date">&nbsp;</p></div>
-    <button type="button" class="fr-btn" id="lock-now">Lock</button>
-  </header>
-  <h1 class="fr-heading">Lights</h1>
-  <div class="fr-lights" id="lights" role="group" aria-label="Lights"></div>
-  <p class="fr-msg" id="home-msg" role="status" aria-live="polite">&nbsp;</p>
-</main>
+  <section class="card garage" aria-label="Garage door">
+    <h2 class="label">Garage</h2>
+    <div class="garage-row">
+      <div class="garage-door" aria-hidden="true"><div class="garage-slats" id="garage-slats"></div></div>
+      <div class="garage-text"><div class="garage-status" id="garage-status">&nbsp;</div><div class="garage-note" id="garage-note">&nbsp;</div></div>
+      <button type="button" class="garage-btn" id="garage-btn" disabled>&nbsp;</button>
+    </div>
+  </section>
 
+  <p class="msg" id="msg" role="status" aria-live="polite">&nbsp;</p>
+</div>
 </body></html>`.value;
 }

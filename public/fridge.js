@@ -1,25 +1,23 @@
-/* Fridge screen. Written for old browsers (Samsung Family Hub): plain ES2015, fetch + promises, no libraries.
-   Two screens: the lock (a keypad) and the home (the lights). The code is checked by the server, not here: this file
-   only collects the last 7 keys and asks. */
+/* Home screen (/dashboard). Written for old browsers (Samsung Family Hub): plain ES5/ES2015, fetch + promises, no libraries.
+   It only draws what /dashboard/api/state and /dashboard/api/week say, and sends taps back. Who may open the page is
+   decided by the server (src/fridge/access.ts), not here. */
 (function () {
   "use strict";
 
-  var body = document.body;
-  var CODE_LENGTH = parseInt(body.getAttribute("data-code-length"), 10) || 7;
-  var IDLE_MS = parseInt(body.getAttribute("data-idle-ms"), 10) || 300000;
   var POLL_MS = 4000;
-
-  var lockEl = document.getElementById("lock");
-  var homeEl = document.getElementById("home");
-  var dotsEl = document.getElementById("dots");
-  var keypadEl = document.getElementById("keypad");
-  var lockMsg = document.getElementById("lock-msg");
-  var homeMsg = document.getElementById("home-msg");
+  var WEEK_MS = 5 * 60 * 1000;
+  var daysEl = document.getElementById("days");
+  var weekToday = document.getElementById("week-today");
+  var peopleEl = document.getElementById("people");
   var lightsEl = document.getElementById("lights");
+  var slatsEl = document.getElementById("garage-slats");
+  var statusEl = document.getElementById("garage-status");
+  var noteEl = document.getElementById("garage-note");
+  var btnEl = document.getElementById("garage-btn");
+  var msgEl = document.getElementById("msg");
 
-  // ---- little helpers
   function api(method, path, data) {
-    return fetch("/fridge" + path, {
+    return fetch("/dashboard" + path, {
       method: method,
       credentials: "same-origin",
       headers: { "Content-Type": "application/json", "X-Fridge": "1" },
@@ -28,23 +26,16 @@
       return res.json().catch(function () { return {}; }).then(function (json) { return { status: res.status, json: json }; });
     });
   }
-  function setMsg(el, text, isError) {
-    el.textContent = text || " ";
-    el.className = "fr-msg" + (isError ? " error" : "");
+  function setMsg(text, isError) {
+    msgEl.textContent = text || " ";
+    msgEl.className = "msg" + (isError ? " error" : "");
   }
-
-  // ---- clock (the device's own time)
-  function tickClock() {
-    var now = new Date();
-    var time = now.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true });
-    var date = now.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
-    var times = document.querySelectorAll('[data-clock="time"]');
-    var dates = document.querySelectorAll('[data-clock="date"]');
-    for (var i = 0; i < times.length; i++) times[i].textContent = time;
-    for (var j = 0; j < dates.length; j++) dates[j].textContent = date;
+  function el(tag, className, text) {
+    var e = document.createElement(tag);
+    if (className) e.className = className;
+    if (text !== undefined) e.textContent = text;
+    return e;
   }
-  tickClock();
-  setInterval(tickClock, 15000);
 
   // ---- icons
   var BULB =
@@ -66,175 +57,150 @@
     '<circle cx="100" cy="164" r="8"/>' +
     '</g><path d="M100 20L100 104" stroke="#8a4f10" stroke-width="2" stroke-linecap="round" opacity="0.55"/></svg>';
 
-  // ---- the lock
-  var typed = ""; // the last CODE_LENGTH keys
-  var count = 0; // how many keys so far (up to CODE_LENGTH), for the dots
-  var busy = false;
-  var again = false;
-  var lockedOutUntil = 0;
-
-  function paintDots(wrong) {
-    var dots = dotsEl.children;
-    for (var i = 0; i < dots.length; i++) dots[i].className = "fr-dot" + (i < count ? " on" : "");
-    dotsEl.className = "fr-dots" + (wrong ? " wrong" : "");
+  // ---- next 7 days
+  function paintWeek(days) {
+    daysEl.innerHTML = "";
+    if (days.length) weekToday.textContent = days[0].dow + " " + days[0].num + " " + days[0].month;
+    days.forEach(function (d) {
+      var row = el("div", "day" + (d.today ? " today" : ""));
+      var date = el("div", "day-date");
+      date.appendChild(el("div", "day-dow", d.today ? "Today" : d.dow));
+      date.appendChild(el("div", "day-num", String(d.num)));
+      var busy = el("div", "day-busy");
+      d.busy.forEach(function (t) {
+        var chip = el("div", "busy");
+        chip.appendChild(el("b", "", "Busy"));
+        chip.appendChild(el("span", "", t));
+        busy.appendChild(chip);
+      });
+      if (!d.busy.length) busy.appendChild(el("div", "free", "Free all day"));
+      row.appendChild(date);
+      row.appendChild(busy);
+      daysEl.appendChild(row);
+    });
   }
-  function resetKeys() {
-    typed = "";
-    count = 0;
-    paintDots(false);
-  }
-
-  function press(key) {
-    if (Date.now() < lockedOutUntil) return;
-    typed = (typed + key).slice(-CODE_LENGTH);
-    if (count < CODE_LENGTH) count++;
-    paintDots(false);
-    setMsg(lockMsg, "");
-    if (count >= CODE_LENGTH) tryUnlock();
-  }
-
-  function tryUnlock() {
-    if (busy) { again = true; return; }
-    busy = true;
-    api("POST", "/unlock", { keys: typed }).then(function (r) {
-      busy = false;
-      if (r.json.ok) { again = false; resetKeys(); showHome(); return; }
-      if (r.status === 429) {
-        var secs = r.json.retryAfterSec || 60;
-        lockedOutUntil = Date.now() + secs * 1000;
-        keypadEl.className = "fr-keypad off";
-        setMsg(lockMsg, "Too many tries. Try again in " + (secs > 90 ? Math.ceil(secs / 60) + " minutes" : secs + " seconds") + ".", true);
-        resetKeys();
-        setTimeout(function () { keypadEl.className = "fr-keypad"; setMsg(lockMsg, ""); }, secs * 1000);
-        return;
+  function loadWeek() {
+    api("GET", "/api/week").then(function (r) {
+      if (r.json.days) paintWeek(r.json.days);
+      else {
+        daysEl.innerHTML = "";
+        daysEl.appendChild(el("div", "free", r.json.error || "Can't read the calendar."));
       }
-      paintDots(true); // wrong: keep typing, the last 7 keys count
-      setTimeout(function () { paintDots(false); }, 500);
-      if (again) { again = false; if (count >= CODE_LENGTH) tryUnlock(); }
-    }).catch(function () {
-      busy = false;
-      setMsg(lockMsg, "Can't reach Jarvis. Try again.", true);
+    }).catch(function () {});
+  }
+
+  // ---- who is where
+  var HOUSE = "M4 11l8-7 8 7M6 10v10h12V10";
+  var PIN = "M12 21s-6-5.5-6-10a6 6 0 1 1 12 0c0 4.5-6 10-6 10zM12 8.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 1 0 0-5z";
+  function paintPeople(people) {
+    peopleEl.innerHTML = "";
+    people.forEach(function (p) {
+      var home = p.where === "Home";
+      var tile = el("div", "person" + (home ? " home" : ""));
+      tile.appendChild(el("div", "avatar", p.name.charAt(0)));
+      var text = el("div", "person-text");
+      text.appendChild(el("div", "person-name", p.name));
+      var where = el("div", "person-where");
+      where.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + (home ? HOUSE : PIN) + '"/></svg>';
+      where.appendChild(el("span", "", p.where || "Not known yet"));
+      text.appendChild(where);
+      tile.appendChild(text);
+      peopleEl.appendChild(tile);
     });
   }
 
-  keypadEl.addEventListener("click", function (e) {
-    var target = e.target;
-    while (target && target !== keypadEl && !target.getAttribute("data-key")) target = target.parentNode;
-    if (target && target.getAttribute) {
-      var key = target.getAttribute("data-key");
-      if (key) press(key);
-    }
-  });
-
-  // ---- the home (lights)
-  var pollTimer = null;
-  var idleTimer = null;
-  var lastActive = Date.now();
+  // ---- lights
+  var LABEL = { on: "On", off: "Off", unavailable: "Not reachable" };
   var built = false;
   var pending = {}; // id -> true while we wait for Home Assistant
-
-  function showLock(message) {
-    stopPolling();
-    homeEl.hidden = true;
-    lockEl.hidden = false;
-    lightsEl.innerHTML = "";
-    built = false;
-    pending = {};
-    resetKeys();
-    setMsg(lockMsg, message || "", false);
-  }
-  function showHome() {
-    lockEl.hidden = true;
-    homeEl.hidden = false;
-    setMsg(homeMsg, "");
-    lastActive = Date.now();
-    refresh();
-    pollTimer = setInterval(refresh, POLL_MS);
-    idleTimer = setInterval(checkIdle, 15000);
-  }
-  function stopPolling() {
-    if (pollTimer) clearInterval(pollTimer);
-    if (idleTimer) clearInterval(idleTimer);
-    pollTimer = null;
-    idleTimer = null;
-  }
-
-  var LABEL = { on: "On", off: "Off", unavailable: "Not reachable" };
-
-  function build(lights) {
+  function buildLights(lights) {
     lightsEl.innerHTML = "";
     lights.forEach(function (l) {
-      var btn = document.createElement("button");
+      var btn = el("button", "light");
       btn.type = "button";
-      btn.className = "fr-light";
       btn.setAttribute("data-id", l.id);
-      btn.innerHTML = (l.icon === "khanda" ? KHANDA : BULB) + '<span class="fr-name"></span><span class="fr-state"></span>';
-      btn.querySelector(".fr-name").textContent = l.name;
+      btn.innerHTML = (l.icon === "khanda" ? KHANDA : BULB) + '<span><span class="light-name"></span><span class="light-state"></span></span>';
+      btn.querySelector(".light-name").textContent = l.name;
       btn.addEventListener("click", function () { toggle(l.id); });
       lightsEl.appendChild(btn);
     });
     built = true;
   }
-  function paint(lights) {
-    if (!built) build(lights);
+  function paintLights(lights) {
+    if (!built) buildLights(lights);
     lights.forEach(function (l) {
       var btn = lightsEl.querySelector('[data-id="' + l.id + '"]');
       if (!btn || pending[l.id]) return; // don't fight a tap that is still being sent
       btn.setAttribute("data-state", l.state);
       btn.setAttribute("aria-pressed", l.state === "on" ? "true" : "false");
-      btn.querySelector(".fr-state").textContent = LABEL[l.state] || l.state;
+      btn.querySelector(".light-state").textContent = LABEL[l.state] || l.state;
     });
   }
-
-  function refresh() {
-    api("GET", "/api/lights").then(function (r) {
-      if (r.status === 401) { showLock("Locked."); return; }
-      if (!r.json.lights) { setMsg(homeMsg, r.json.error || "Can't read the lights.", true); return; }
-      setMsg(homeMsg, "");
-      paint(r.json.lights);
-    }).catch(function () { setMsg(homeMsg, "Can't reach Jarvis.", true); });
-  }
-
   function toggle(id) {
     var btn = lightsEl.querySelector('[data-id="' + id + '"]');
     if (!btn || pending[id]) return;
     var state = btn.getAttribute("data-state");
-    if (state === "unavailable") { setMsg(homeMsg, "That one isn't reachable right now.", true); return; }
+    if (state === "unavailable") { setMsg("That one isn't reachable right now.", true); return; }
     var on = state !== "on"; // we say on or off, never "toggle", so a double tap can't flip it twice
     pending[id] = true;
-    btn.className = "fr-light pending";
+    btn.className = "light pending";
     btn.setAttribute("data-state", on ? "on" : "off");
-    btn.querySelector(".fr-state").textContent = on ? "On" : "Off";
+    btn.querySelector(".light-state").textContent = on ? "On" : "Off";
     api("POST", "/api/lights/" + id, { on: on }).then(function (r) {
-      if (r.status === 401) { showLock("Locked."); return; }
-      if (!r.json.ok) setMsg(homeMsg, r.json.error || "That didn't work.", true);
-      else setMsg(homeMsg, "");
+      setMsg(r.json.ok ? "" : (r.json.error || "That didn't work."), !r.json.ok);
     }).catch(function () {
-      setMsg(homeMsg, "Can't reach Jarvis.", true);
+      setMsg("Can't reach Jarvis.", true);
     }).then(function () {
-      setTimeout(function () {
-        pending[id] = false;
-        btn.className = "fr-light";
-        refresh();
-      }, 700);
+      setTimeout(function () { pending[id] = false; btn.className = "light"; refresh(); }, 700);
     });
   }
 
-  // ---- locking: the button, and after a quiet spell
-  document.getElementById("lock-now").addEventListener("click", function () {
-    api("POST", "/lock").then(function () { showLock(""); }, function () { showLock(""); });
-  });
-  function checkIdle() {
-    if (Date.now() - lastActive > IDLE_MS) {
-      api("POST", "/lock").then(function () { showLock(""); }, function () { showLock(""); });
-    }
+  // ---- garage
+  var garage = "unavailable";
+  var sure = false; // the first tap only asks "are you sure?"
+  var sureTimer = null;
+  var STATUS = { open: "Open", closed: "Closed", opening: "Opening\u2026", closing: "Closing\u2026", unavailable: "Not reachable" };
+  var NOTE = { open: "Left open", closed: "Secure", opening: "Please wait", closing: "Please wait", unavailable: "The door sensor isn't answering" };
+  function paintGarage(state) {
+    garage = state || "unavailable";
+    statusEl.textContent = STATUS[garage];
+    statusEl.className = "garage-status" + (garage === "closed" ? " closed" : "");
+    noteEl.textContent = NOTE[garage];
+    slatsEl.style.height = garage === "closed" || garage === "closing" ? "100%" : garage === "unavailable" ? "100%" : "14%";
+    var canPress = garage === "open" || garage === "closed";
+    btnEl.disabled = !canPress;
+    btnEl.className = "garage-btn" + (sure && canPress ? " sure" : "");
+    btnEl.textContent = !canPress ? (garage === "unavailable" ? "Not available" : "Moving\u2026") : sure ? (garage === "closed" ? "Tap again to open" : "Tap again to close") : (garage === "closed" ? "Open door" : "Close door");
   }
-  ["touchstart", "mousedown", "keydown"].forEach(function (ev) {
-    document.addEventListener(ev, function () { lastActive = Date.now(); }, true);
+  btnEl.addEventListener("click", function () {
+    if (garage !== "open" && garage !== "closed") return;
+    if (!sure) {
+      sure = true;
+      paintGarage(garage);
+      sureTimer = setTimeout(function () { sure = false; paintGarage(garage); }, 4000);
+      return;
+    }
+    clearTimeout(sureTimer);
+    sure = false;
+    var action = garage === "closed" ? "open" : "close";
+    api("POST", "/api/garage", { action: action }).then(function (r) {
+      setMsg(r.json.ok ? "" : (r.json.error || "That didn't work."), !r.json.ok);
+      refresh();
+    }).catch(function () { setMsg("Can't reach Jarvis.", true); });
   });
 
-  // If this browser already holds a live session (a refresh of the page), go straight in.
-  api("GET", "/api/session").then(function (r) {
-    if (r.json.unlocked) showHome();
-  }).catch(function () {});
+  // ---- keep it fresh
+  function refresh() {
+    api("GET", "/api/state").then(function (r) {
+      if (r.status === 403) { setMsg("This screen isn't allowed in. Log in with an allowed email.", true); return; }
+      if (r.json.people) paintPeople(r.json.people);
+      if (r.json.lights) paintLights(r.json.lights);
+      paintGarage(r.json.garage);
+      setMsg(r.json.error || "", !!r.json.error);
+    }).catch(function () { setMsg("Can't reach Jarvis.", true); });
+  }
+  refresh();
+  loadWeek();
+  setInterval(refresh, POLL_MS);
+  setInterval(loadWeek, WEEK_MS);
 })();

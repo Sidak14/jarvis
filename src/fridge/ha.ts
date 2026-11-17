@@ -1,3 +1,4 @@
+import { GARAGE_COVER, GARAGE_STATUS, garageState, type GarageAction, type GarageState } from "./garage";
 import { NEVER_SWITCH } from "./lights";
 
 // A tiny Home Assistant client for the fridge page: read some switch states, turn one on or off. The token stays on
@@ -9,6 +10,9 @@ export interface HaClient {
   /** The state of each entity. Anything missing or odd (unavailable, unknown) comes back as "unavailable". */
   states(entities: string[]): Promise<Record<string, LightState>>;
   setSwitch(entity: string, on: boolean): Promise<void>;
+  garage(): Promise<GarageState>;
+  /** Press Open or Close. Home Assistant ignores it if the door is not in the right state or is already moving. */
+  pressGarage(action: GarageAction): Promise<void>;
 }
 
 type FetchFn = (url: string, init?: RequestInit) => Promise<Response>;
@@ -37,6 +41,22 @@ export function haClient(baseUrl: string, token: string, fetchFn: FetchFn = fetc
         method: "POST",
         headers,
         body: JSON.stringify({ entity_id: entity }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) throw new Error(`Home Assistant answered ${res.status}`);
+    },
+
+    async garage() {
+      const res = await fetchFn(`${base}/api/states/${GARAGE_STATUS}`, { headers, signal: AbortSignal.timeout(4000) });
+      if (!res.ok) throw new Error(`Home Assistant answered ${res.status}`);
+      return garageState(((await res.json()) as { state?: string }).state);
+    },
+
+    async pressGarage(action) {
+      const res = await fetchFn(`${base}/api/services/cover/${action === "open" ? "open_cover" : "close_cover"}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ entity_id: GARAGE_COVER }),
         signal: AbortSignal.timeout(5000),
       });
       if (!res.ok) throw new Error(`Home Assistant answered ${res.status}`);

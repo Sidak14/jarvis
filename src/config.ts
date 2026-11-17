@@ -86,9 +86,17 @@ const schema = z.object({
   // Home Assistant (local, on this Mac). Optional: without a token the fridge page cannot show or switch lights.
   HA_URL: z.url().default("http://127.0.0.1:8123"),
   HA_TOKEN: z.string().min(1).optional(),
-  // The kitchen fridge screen (/fridge). Its unlock code: exactly 7 keys, digits or * or #. Optional: without it
-  // /fridge is off (404). Keep it in .env, never in the code.
-  FRIDGE_CODE: z.string().regex(/^[0-9*#]{7}$/, "must be exactly 7 keys: digits, * or #").optional(),
+  // The home screen (/dashboard, the kitchen fridge). Who may open it through the Cloudflare tunnel: the emails Cloudflare Access
+  // logged in (comma separated). Anyone on the home network is let in too (see src/fridge/access.ts). Unset = tunnel logins are refused.
+  DASHBOARD_EMAILS: z
+    .string()
+    .default("")
+    .transform((v) => v.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean)),
+  // Extra public IPs that count as "home" (comma separated), on top of the one Jarvis finds by itself. Optional.
+  DASHBOARD_HOME_IPS: z
+    .string()
+    .default("")
+    .transform((v) => v.split(",").map((e) => e.trim()).filter(Boolean)),
 
   // Google Sheets for expenses. Optional: without them expenses are stored and the sync waits.
   GOOGLE_SHEET_ID: z.string().min(1).optional(),
@@ -136,6 +144,7 @@ export function redactedConfig(): Record<string, string | number | boolean | und
     TELEGRAM_BOT_TOKEN: config.TELEGRAM_BOT_TOKEN ? "***" : undefined,
     TELEGRAM_OWNER_ID: config.TELEGRAM_OWNER_ID ? "***" : undefined,
     HA_TOKEN: config.HA_TOKEN ? "***" : undefined,
-    FRIDGE_CODE: config.FRIDGE_CODE ? "***" : undefined,
+    DASHBOARD_EMAILS: config.DASHBOARD_EMAILS.length ? `${config.DASHBOARD_EMAILS.length} email(s)` : "none",
+    DASHBOARD_HOME_IPS: config.DASHBOARD_HOME_IPS.length ? `${config.DASHBOARD_HOME_IPS.length} ip(s)` : "none",
   };
 }
