@@ -159,26 +159,36 @@
   var garage = "unavailable";
   var sure = false; // the first tap only asks "are you sure?"
   var sureTimer = null;
-  var STATUS = { open: "Open", closed: "Closed", opening: "Opening\u2026", closing: "Closing\u2026", unavailable: "Not reachable" };
-  var NOTE = { open: "Left open", closed: "Secure", opening: "Please wait", closing: "Please wait", unavailable: "The door sensor isn't answering" };
+  var STATUS = { open: "Open", closed: "Closed", opening: "Opening\u2026", closing: "Closing\u2026" };
+  var NOTE = { open: "Left open", closed: "Secure", opening: "Please wait", closing: "Please wait" };
+  var last = null; // the latest reading from the server, so a tap can repaint without asking again
   function paintGarage(info) {
-    garage = (info && info.state) || "unavailable";
-    var opener = !!(info && info.opener);
-    statusEl.textContent = STATUS[garage];
-    statusEl.className = "garage-status" + (garage === "closed" ? " closed" : "");
-    noteEl.textContent = !opener && garage !== "unavailable" ? "The opener is offline (no Wi-Fi), so buttons can't reach the door" : NOTE[garage];
-    slatsEl.style.height = garage === "closed" || garage === "closing" ? "100%" : garage === "unavailable" ? "100%" : "14%";
-    var canPress = (garage === "open" || garage === "closed") && opener;
+    last = info;
+    drawGarage();
+  }
+  function drawGarage() {
+    var info = last;
+    var sensor = (info && info.state) || "unavailable"; // the tilt sensor's reading
+    var opener = !!(info && info.opener); // is the opener on Wi-Fi?
+    // If either can't be read the door can't be trusted or pressed: say so and switch the button off.
+    var unreadable = sensor === "unavailable" || !opener;
+    garage = unreadable ? "unavailable" : sensor;
+    statusEl.textContent = unreadable ? "Unreadable" : STATUS[garage];
+    statusEl.className = "garage-status" + (unreadable ? " bad" : garage === "closed" ? " closed" : "");
+    noteEl.textContent = unreadable ? (sensor === "unavailable" ? "The door sensor isn't answering" : "The opener isn't answering (no Wi-Fi)") : NOTE[garage];
+    slatsEl.style.height = garage === "open" || garage === "opening" ? "14%" : "100%";
+    var canPress = garage === "open" || garage === "closed";
+    if (!canPress) sure = false;
     btnEl.disabled = !canPress;
-    btnEl.className = "garage-btn" + (sure && canPress ? " sure" : "");
-    btnEl.textContent = !canPress ? (garage === "opening" || garage === "closing" ? "Moving\u2026" : !opener ? "Opener offline" : "Not available") : sure ? (garage === "closed" ? "Tap again to open" : "Tap again to close") : (garage === "closed" ? "Open door" : "Close door");
+    btnEl.className = "garage-btn" + (sure ? " sure" : "");
+    btnEl.textContent = unreadable ? "Unreadable" : !canPress ? "Moving\u2026" : sure ? (garage === "closed" ? "Tap again to open" : "Tap again to close") : (garage === "closed" ? "Open door" : "Close door");
   }
   btnEl.addEventListener("click", function () {
     if (btnEl.disabled) return;
     if (!sure) {
       sure = true;
-      paintGarage(garage);
-      sureTimer = setTimeout(function () { sure = false; paintGarage(garage); }, 4000);
+      drawGarage();
+      sureTimer = setTimeout(function () { sure = false; drawGarage(); }, 4000);
       return;
     }
     clearTimeout(sureTimer);

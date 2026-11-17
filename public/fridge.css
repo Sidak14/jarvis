@@ -19,7 +19,7 @@ body.home {
   touch-action: manipulation;
   overflow: hidden;
 }
-.home button { font-family: inherit; cursor: pointer; color: inherit; }
+button { font-family: inherit; cursor: pointer; color: inherit; } /* (no .home here: a class rule like .garage-btn must be able to set its own colour) */
 .home button:focus { outline: 0.3rem solid #f2b84b; outline-offset: 0.2rem; }
 .home h2 { margin: 0; }
 
@@ -93,10 +93,11 @@ body.home {
 .garage-text { flex: 1; min-width: 0; }
 .garage-status { font-size: 4.8rem; font-weight: 700; line-height: 1.1; color: #f6c766; }
 .garage-status.closed { color: #7fe3cc; }
+.garage-status.bad { color: #ff9fae; }
 .garage-note { margin-top: 0.4rem; font-size: 2rem; color: #a9aeb8; }
 .garage-btn { width: 28rem; min-height: 8.8rem; flex: none; border-radius: 2.2rem; font-size: 2.6rem; font-weight: 600; border: 0.15rem solid #f2b84b; background: #f2b84b; color: #1a1405; }
 .garage-btn:disabled { border-color: #3a3f49; background: #1e2229; color: #a9aeb8; cursor: default; }
-.garage-btn.sure { background: #ffffff; border-color: #ffffff; }
+.garage-btn.sure { background: #ffffff; border-color: #ffffff; color: #1a1405; }
 
 .msg { margin: 0; min-height: 3rem; text-align: center; font-size: 2rem; color: #a9aeb8; }
 .msg.error { color: #ff9fae; }

@@ -320,6 +320,15 @@ describe("home screen routes", () => {
     assert.deepEqual(pressed, ["open", "close"]);
   });
 
+  it("does not press the garage when the sensor or the opener can't be read", async () => {
+    const f = fakeHa();
+    const app = createHomeApp({ access: access(), ha: { ...f.ha, garage: async () => ({ state: "closed", opener: false }) }, people: () => [], week: async () => [], publicDir: "public" });
+    assert.equal((await post(app, "/api/garage", { action: "open" })).status, 409);
+    const app2 = createHomeApp({ access: access(), ha: { ...f.ha, garage: async () => ({ state: "unavailable", opener: true }) }, people: () => [], week: async () => [], publicDir: "public" });
+    assert.equal((await post(app2, "/api/garage", { action: "open" })).status, 409);
+    assert.deepEqual(f.pressed, []);
+  });
+
   it("says so when Home Assistant is not set up or not answering", async () => {
     const noHa = make({ ha: null });
     const state = (await (await noHa.app.request("/api/state", { headers: IN })).json()) as { error: string; people: unknown[] };

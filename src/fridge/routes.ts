@@ -112,6 +112,9 @@ export function createHomeApp(deps: HomeDeps): Hono {
     if (body?.action !== "open" && body?.action !== "close") return c.json({ error: "bad request" }, 400);
     if (!deps.ha) return c.json({ error: "Home Assistant isn't set up" }, 503);
     try {
+      // If the sensor or the opener can't be read, don't press: Home Assistant would ignore it and nothing would happen.
+      const garage = await deps.ha.garage();
+      if (garage.state === "unavailable" || !garage.opener) return c.json({ error: "The garage door is unreadable right now" }, 409);
       await deps.ha.pressGarage(body.action as GarageAction);
     } catch (err) {
       console.error("[home] could not press the garage:", (err as Error).message);

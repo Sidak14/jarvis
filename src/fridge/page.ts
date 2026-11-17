@@ -3,7 +3,7 @@ import { h } from "../ui/html";
 // The one HTML file of the home screen. It is an empty frame: fridge.js fills it from /dashboard/api/state and /api/week.
 // Samsung Family Hub browsers are old: plain HTML and CSS, no framework, nothing fancy (see public/fridge.js).
 
-export const HOME_ASSET_VERSION = "4";
+export const HOME_ASSET_VERSION = "6";
 
 export function homePage(): string {
   return h`<!doctype html>
