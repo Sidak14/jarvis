@@ -47,18 +47,28 @@ template:
           {% elif is_state('binary_sensor.third_reality_inc_3rdts01056z', 'on') %}open
           {% else %}closed{% endif %}
         open_cover:
-          # Only when the door is closed and no press is still in progress.
+          # Only when the door is closed, no press is still in progress, and the opener is on Wi-Fi.
           - condition: state
             entity_id: sensor.garage_door_status
             state: closed
-          - action: script.garage_press
-            data: { direction: opening }
+          - condition: state
+            entity_id: binary_sensor.garage_opener_reachable
+            state: "on"
+          # script.turn_on starts the press and returns at once (calling the script directly would make this
+          # service call wait the whole 15 seconds, and whoever pressed Open would time out).
+          - action: script.turn_on
+            target: { entity_id: script.garage_press }
+            data: { variables: { direction: opening } }
         close_cover:
           - condition: state
             entity_id: sensor.garage_door_status
             state: open
-          - action: script.garage_press
-            data: { direction: closing }
+          - condition: state
+            entity_id: binary_sensor.garage_opener_reachable
+            state: "on"
+          - action: script.turn_on
+            target: { entity_id: script.garage_press }
+            data: { variables: { direction: closing } }
 
 script:
   # THE one signal to the opener, then 15 seconds during which nothing else can be pressed (mode: single).

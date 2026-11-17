@@ -3,8 +3,15 @@
 
 export const GARAGE_STATUS = "sensor.garage_door_status";
 export const GARAGE_COVER = "cover.garage_door";
+/** "on" while the opener (the Athom box) is on Wi-Fi. When it is off a press cannot reach the door. */
+export const GARAGE_OPENER = "binary_sensor.garage_opener_reachable";
 
 export type GarageState = "open" | "closed" | "opening" | "closing" | "unavailable";
+export interface Garage {
+  state: GarageState;
+  /** Is the opener reachable? */
+  opener: boolean;
+}
 export type GarageAction = "open" | "close";
 
 export const garageState = (raw: string | undefined): GarageState =>

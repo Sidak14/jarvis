@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Hono } from "hono";
 import { checkAccess, dashboardLogin, isHomeNetwork, type AccessDeps } from "./access";
-import type { GarageAction, GarageState } from "./garage";
+import type { Garage, GarageAction, GarageState } from "./garage";
 import { haClient, type HaClient, type LightState } from "./ha";
 import { LIGHTS, NEVER_SWITCH } from "./lights";
 import { createHomeApp } from "./routes";
@@ -152,13 +152,14 @@ describe("haClient", () => {
     const calls: { url: string; body: string | undefined }[] = [];
     const ha = haClient("http://ha.test", "T", async (url, init) => {
       calls.push({ url, body: init?.body as string | undefined });
-      return json(url.includes("/api/states/") ? { state: "opening" } : []);
+      return json(url.includes("binary_sensor") ? { state: "off" } : url.includes("/api/states/") ? { state: "opening" } : []);
     });
-    assert.equal(await ha.garage(), "opening");
+    assert.deepEqual(await ha.garage(), { state: "opening", opener: false });
     await ha.pressGarage("open");
     await ha.pressGarage("close");
     assert.deepEqual(calls, [
       { url: "http://ha.test/api/states/sensor.garage_door_status", body: undefined },
+      { url: "http://ha.test/api/states/binary_sensor.garage_opener_reachable", body: undefined },
       { url: "http://ha.test/api/services/cover/open_cover", body: '{"entity_id":"cover.garage_door"}' },
       { url: "http://ha.test/api/services/cover/close_cover", body: '{"entity_id":"cover.garage_door"}' },
     ]);
@@ -166,7 +167,7 @@ describe("haClient", () => {
 
   it("an odd garage status is 'unavailable'", async () => {
     const ha = haClient("http://ha.test", "T", async () => json({ state: "unknown" }));
-    assert.equal(await ha.garage(), "unavailable");
+    assert.deepEqual(await ha.garage(), { state: "unavailable", opener: false });
   });
 
   it("an error from Home Assistant is an error", async () => {
@@ -205,7 +206,7 @@ function fakeHa() {
       states[entity] = on ? "on" : "off";
     },
     async garage() {
-      return garage;
+      return { state: garage, opener: true } as Garage;
     },
     async pressGarage(action) {
       pressed.push(action);
@@ -262,10 +263,10 @@ describe("home screen routes", () => {
 
   it("state has the lights, the garage and where people are, without entity ids", async () => {
     const { app } = make();
-    const body = (await (await app.request("/api/state", { headers: IN })).json()) as { lights: { id: string; state: string }[]; garage: string; people: { name: string; where: string }[] };
+    const body = (await (await app.request("/api/state", { headers: IN })).json()) as { lights: { id: string; state: string }[]; garage: unknown; people: { name: string; where: string }[] };
     assert.equal(body.lights.length, LIGHTS.length);
     assert.ok(body.lights.every((l) => ["on", "off", "unavailable"].includes(l.state)));
-    assert.equal(body.garage, "closed");
+    assert.deepEqual(body.garage, { state: "closed", opener: true });
     assert.deepEqual(body.people, [{ name: "Gurveer", where: "Gym" }]);
     assert.ok(!JSON.stringify(body).includes("switch."));
   });

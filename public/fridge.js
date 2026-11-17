@@ -161,19 +161,20 @@
   var sureTimer = null;
   var STATUS = { open: "Open", closed: "Closed", opening: "Opening\u2026", closing: "Closing\u2026", unavailable: "Not reachable" };
   var NOTE = { open: "Left open", closed: "Secure", opening: "Please wait", closing: "Please wait", unavailable: "The door sensor isn't answering" };
-  function paintGarage(state) {
-    garage = state || "unavailable";
+  function paintGarage(info) {
+    garage = (info && info.state) || "unavailable";
+    var opener = !!(info && info.opener);
     statusEl.textContent = STATUS[garage];
     statusEl.className = "garage-status" + (garage === "closed" ? " closed" : "");
-    noteEl.textContent = NOTE[garage];
+    noteEl.textContent = !opener && garage !== "unavailable" ? "The opener is offline (no Wi-Fi), so buttons can't reach the door" : NOTE[garage];
     slatsEl.style.height = garage === "closed" || garage === "closing" ? "100%" : garage === "unavailable" ? "100%" : "14%";
-    var canPress = garage === "open" || garage === "closed";
+    var canPress = (garage === "open" || garage === "closed") && opener;
     btnEl.disabled = !canPress;
     btnEl.className = "garage-btn" + (sure && canPress ? " sure" : "");
-    btnEl.textContent = !canPress ? (garage === "unavailable" ? "Not available" : "Moving\u2026") : sure ? (garage === "closed" ? "Tap again to open" : "Tap again to close") : (garage === "closed" ? "Open door" : "Close door");
+    btnEl.textContent = !canPress ? (garage === "opening" || garage === "closing" ? "Moving\u2026" : !opener ? "Opener offline" : "Not available") : sure ? (garage === "closed" ? "Tap again to open" : "Tap again to close") : (garage === "closed" ? "Open door" : "Close door");
   }
   btnEl.addEventListener("click", function () {
-    if (garage !== "open" && garage !== "closed") return;
+    if (btnEl.disabled) return;
     if (!sure) {
       sure = true;
       paintGarage(garage);
