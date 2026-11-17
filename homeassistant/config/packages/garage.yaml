@@ -1,22 +1,15 @@
-# Garage door state, from the tilt sensor on the door and the one button on the Athom opener.
+# Garage door: the tilt sensor says where the door is; the Athom opener has one button.
 #
-# How the door works:
-#   - The Athom opener has ONE signal. Each press tells the motor "go" or, if it is moving, "stop". The motor knows
-#     which way to go; we do not. So every button here sends the same signal (script.garage_press) and only the
-#     bookkeeping differs.
-#   - The Third Reality tilt sensor (on = open, off = closed) only knows open or closed, not the bits in between.
+# - State (sensor.garage_door_status):  open | closed   (from the Third Reality tilt sensor: on = open, off = closed)
+#                                       opening | closing   for 15 seconds after you press Open / Close here
+#                                       unavailable   if the tilt sensor is
+# - You can Open (when it is closed) and Close (when it is open). There is no Stop.
+# - After a press the door needs about 15 seconds, and pressing again is ignored until that is over. Then the state
+#   goes back to whatever the sensor says.
+# - If the sensor changes without a press here, someone used the remote or the wall button: the state just follows it.
 #
-# States (sensor.garage_door_status):  open | closed | opening | closing | stopped | unavailable
-#   open / closed   from the tilt sensor
-#   opening / closing   after a press, until the tilt sensor changes (no timer: it is event driven)
-#   stopped         a press while it was moving; it stays "stopped" until the next press or until the sensor changes
-#
-# What can be pressed (anything else is ignored, here and on the dashboard):
-#   closed -> Open          open -> Close          opening / closing -> Stop
-#   stopped -> goes the other way (stopped while opening: next press closes; stopped while closing: next press opens)
-#
-# Only safety net that is not event driven: if the sensor never changes (an obstruction, a missed press), "opening" or
-# "closing" ends after garage_failsafe below, back to whatever the sensor says.
+# The opener has ONE signal (it tells the motor "go"), so Open and Close both send the same thing: script.garage_press.
+# (It calls the opener's cover.stop_cover, because the opener's own "open" is ignored while it believes the door is open.)
 
 input_select:
   garage_motion:
@@ -27,8 +20,6 @@ input_select:
       - idle
       - opening
       - closing
-      - stopped_from_opening
-      - stopped_from_closing
 
 template:
   - sensor:
@@ -36,13 +27,12 @@ template:
         unique_id: garage_door_status
         icon: >
           {% set s = states('sensor.garage_door_status') %}
-          {{ {'open': 'mdi:garage-open', 'closed': 'mdi:garage', 'opening': 'mdi:arrow-up-box', 'closing': 'mdi:arrow-down-box', 'stopped': 'mdi:stop-circle'}.get(s, 'mdi:garage-alert') }}
+          {{ {'open': 'mdi:garage-open', 'closed': 'mdi:garage', 'opening': 'mdi:arrow-up-box', 'closing': 'mdi:arrow-down-box'}.get(s, 'mdi:garage-alert') }}
         state: >
           {% set tilt = states('binary_sensor.third_reality_inc_3rdts01056z') %}
           {% set motion = states('input_select.garage_motion') %}
           {% if tilt in ['unavailable', 'unknown'] %}unavailable
-          {% elif motion in ['opening', 'closing'] %}{{ motion }}
-          {% elif motion.startswith('stopped') %}stopped
+          {% elif motion != 'idle' %}{{ motion }}
           {% elif tilt == 'on' %}open
           {% else %}closed{% endif %}
 
@@ -53,76 +43,39 @@ template:
         availability: "{{ states('binary_sensor.third_reality_inc_3rdts01056z') not in ['unavailable', 'unknown'] }}"
         state: >
           {% set motion = states('input_select.garage_motion') %}
-          {% if motion in ['opening', 'closing'] %}{{ motion }}
+          {% if motion != 'idle' %}{{ motion }}
           {% elif is_state('binary_sensor.third_reality_inc_3rdts01056z', 'on') %}open
           {% else %}closed{% endif %}
         open_cover:
-          - condition: template
-            value_template: >
-              {{ (is_state('input_select.garage_motion', 'idle') and is_state('binary_sensor.third_reality_inc_3rdts01056z', 'off'))
-                 or is_state('input_select.garage_motion', 'stopped_from_closing') }}
-          - action: input_select.select_option
-            target: { entity_id: input_select.garage_motion }
-            data: { option: opening }
+          # Only when the door is closed and no press is still in progress.
+          - condition: state
+            entity_id: sensor.garage_door_status
+            state: closed
           - action: script.garage_press
+            data: { direction: opening }
         close_cover:
-          - condition: template
-            value_template: >
-              {{ (is_state('input_select.garage_motion', 'idle') and is_state('binary_sensor.third_reality_inc_3rdts01056z', 'on'))
-                 or is_state('input_select.garage_motion', 'stopped_from_opening') }}
-          - action: input_select.select_option
-            target: { entity_id: input_select.garage_motion }
-            data: { option: closing }
+          - condition: state
+            entity_id: sensor.garage_door_status
+            state: open
           - action: script.garage_press
-        stop_cover:
-          - condition: template
-            value_template: "{{ states('input_select.garage_motion') in ['opening', 'closing'] }}"
-          - action: input_select.select_option
-            target: { entity_id: input_select.garage_motion }
-            data: { option: "stopped_from_{{ states('input_select.garage_motion') }}" }
-          - action: script.garage_press
+            data: { direction: closing }
 
 script:
-  # THE one signal to the opener. Open, close and stop all do exactly this. (The opener's own "stop" is used because
-  # its "open" is ignored while the opener believes the door is already open.)
+  # THE one signal to the opener, then 15 seconds during which nothing else can be pressed (mode: single).
   garage_press:
     alias: Garage door press
     icon: mdi:gesture-tap-button
     mode: single
+    fields:
+      direction:
+        description: opening or closing (what the door is about to do)
     sequence:
-      - action: cover.stop_cover
-        target: { entity_id: cover.athom_garage_door_f99f26_garage_door }
-
-automation:
-  # The tilt sensor changed: the door has arrived (or was moved some other way). Whatever we were waiting for is over.
-  - id: garage_motion_ends
-    alias: Garage door arrived
-    mode: single
-    triggers:
-      - trigger: state
-        entity_id: binary_sensor.third_reality_inc_3rdts01056z
-        to: ["on", "off"]
-    conditions:
-      - condition: not
-        conditions:
-          - condition: state
-            entity_id: input_select.garage_motion
-            state: idle
-    actions:
       - action: input_select.select_option
         target: { entity_id: input_select.garage_motion }
-        data: { option: idle }
-
-  # Safety net: the sensor never changed (obstruction, a press that did nothing), so stop saying opening / closing.
-  - id: garage_failsafe
-    alias: Garage door stuck moving
-    mode: restart
-    triggers:
-      - trigger: state
-        entity_id: input_select.garage_motion
-        to: [opening, closing]
-        for: { minutes: 2 }
-    actions:
+        data: { option: "{{ direction }}" }
+      - action: cover.stop_cover
+        target: { entity_id: cover.athom_garage_door_f99f26_garage_door }
+      - delay: { seconds: 15 }
       - action: input_select.select_option
         target: { entity_id: input_select.garage_motion }
         data: { option: idle }
