@@ -10,7 +10,10 @@ import { createVoiceApp } from "./routes";
 import { clean, quoted, sanitizeData } from "./sanitize";
 import { CallSecurity, CONFIRM_TTL_MS, PIN_MAX_TRIES, PIN_VALID_MS } from "./session";
 import { createVoiceTables } from "./schema";
-import { registry as realRegistry } from "./tools";
+import { buildRegistry } from "./tools";
+import { loadEntities } from "./entities";
+
+const realRegistry = buildRegistry({ db: null as never, entities: loadEntities(), ha: null, calendar: () => null, writes: () => "dry" });
 
 const T0 = new Date("2026-11-17T03:00:00Z");
 const PIN = "482915";

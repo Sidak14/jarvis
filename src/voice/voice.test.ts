@@ -6,7 +6,10 @@ import { getCall } from "./calls";
 import { defineTool, ToolRegistry } from "./registry";
 import { createVoiceApp, type VoiceDeps } from "./routes";
 import { createVoiceTables } from "./schema";
-import { registry as realRegistry } from "./tools";
+import { buildRegistry } from "./tools";
+import { loadEntities } from "./entities";
+
+const realRegistry = buildRegistry({ db: null as never, entities: loadEntities(), ha: null, calendar: () => null, writes: () => "dry" });
 import { parseToolCalls } from "./vapi";
 import { CallSecurity } from "./session";
 

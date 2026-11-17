@@ -8,7 +8,7 @@ import { db } from "../db";
 import { notify } from "../telegram";
 import { budget, budgetAlert, recordUsage } from "./budget";
 import { acceptCall, finishCall, logToolCall, maskPhone, registerCall, samePhone, type CallRow } from "./calls";
-import { registry as realRegistry } from "./tools";
+import { realRegistry } from "./wiring";
 import type { ToolRegistry } from "./registry";
 import { CallSecurity } from "./session";
 import { DISABLED_MESSAGE, LIMIT_MESSAGE, STRANGER_MESSAGE } from "./settings";

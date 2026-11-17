@@ -1,7 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { config, ROOT } from "../config";
-import { registry } from "./tools";
+import { loadEntities } from "./entities";
+import { buildRegistry } from "./tools";
+
+// Only the tools' names and argument shapes are needed here, so no database or Home Assistant is touched.
+const registry = buildRegistry({ db: null as never, entities: loadEntities(), ha: null, calendar: () => null, writes: () => "dry" });
 
 // `npm run voice:push`: make Vapi match voice/assistant.json plus the tool registry. The code is the source of truth:
 // this creates or updates the assistant (and points the phone number at Jarvis), and saves the ids in voice/.vapi-ids.json.

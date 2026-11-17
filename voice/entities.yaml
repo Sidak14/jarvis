@@ -1,0 +1,34 @@
+# The ONLY things the voice assistant can read or change in Home Assistant. Anything not listed here does not exist for it.
+# Edit this file, then restart Jarvis. (Writes are also switched by VOICE_HA_WRITES=dry|live in .env.)
+#
+# NEVER list the Frontyard Top Lights (switch.shellyswitch25_c8c9a37a653a_channel_2): switching it on trips the main circuit.
+# Jarvis refuses to start if it is listed here.
+
+garage:
+  # Open and Close go to this cover. It is the template cover built on the tilt sensor (packages/garage.yaml):
+  # Home Assistant itself only lets Open through when the door is closed and Close when it is open.
+  # NOT cover.athom_garage_door_f99f26_garage_door: that is the opener box, whose state is assumed and always says "open".
+  cover: cover.garage_door
+  # closed | open | opening | closing | unavailable (opening and closing last 15 seconds after a press)
+  status: sensor.garage_door_status
+  # The tilt sensor itself: on = open. When it last changed is how long the door has been open or closed.
+  sensor: binary_sensor.third_reality_inc_3rdts01056z
+  # on = the opener box is on Wi-Fi. When it is off a press cannot reach the door.
+  opener: binary_sensor.garage_opener_reachable
+
+# What you can say: the name (and any alias), and the switch it turns on and off.
+lights:
+  - { name: chandelier, entity: switch.shellyswitch25_c8c9a375a239_channel_1 }
+  - { name: chandelier down lights, entity: switch.shellyswitch25_c8c9a375a239_channel_2 }
+  - { name: khanda light, entity: switch.shellyswitch25_c8c9a37a653a_channel_1, aliases: [khanda] }
+  - { name: entrance lights, entity: switch.shellyswitch25_c8c9a375c8b2_channel_2, aliases: [entrance] }
+  - { name: side lights, entity: switch.shellyswitch25_c8c9a375c8b2_channel_1 }
+  - { name: butlers pantry, entity: switch.shelly1pm_34945471a117, aliases: [pantry] }
+  - { name: driveway lights, entity: switch.shelly1pm_34945471ad19, aliases: [driveway] }
+  - { name: frontyard bottom lights, entity: switch.shelly1pm_34945472b313, aliases: [front yard lights, frontyard lights] }
+  - { name: garage lights, entity: switch.shellyswitch25_c45bbe6bd1ee_channel_2, aliases: [garage] }
+  - { name: side garage lights, entity: switch.shellyswitch25_c45bbe6bd1ee_channel_1, aliases: [side garage] }
+  - { name: courtyard lights, entity: switch.courtyard_lights, aliases: [courtyard] }
+  - { name: water fountain, entity: switch.water_fountain, aliases: [fountain] }
+  - { name: backyard one, entity: switch.smart_plug_backyard_1, aliases: [backyard 1, backyard plug 1] }
+  - { name: backyard two, entity: switch.smart_plug_backyard_2, aliases: [backyard 2, backyard plug 2] }

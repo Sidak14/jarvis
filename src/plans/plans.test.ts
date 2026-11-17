@@ -52,6 +52,7 @@ interface FakeEvent {
 }
 class FakeCalendar implements CalendarClient {
   events: FakeEvent[] = [];
+  async agenda() { return []; }
   creates = 0;
   async overlapping(startIso: string, endIso: string, ignorePlanId?: string): Promise<BusyEvent[]> {
     return this.events
@@ -727,6 +728,7 @@ describe("calendar", () => {
   it("an unreachable calendar is an error that is reported, not swallowed", async () => {
     ready();
     const broken: CalendarClient = {
+      agenda: async () => [],
       overlapping: async () => { throw new Error("Google Calendar HTTP 503"); },
       findByPlan: async () => null,
       create: async () => { throw new Error("unreachable"); },

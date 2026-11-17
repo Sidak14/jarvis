@@ -20,7 +20,15 @@ export interface BusyEvent {
   endIso: string;
   calendar: string;
 }
+export interface AgendaEvent {
+  summary: string;
+  startIso: string;
+  endIso: string;
+  allDay: boolean;
+}
 export interface CalendarClient {
+  /** What is on my main (primary) calendar between two instants, earliest first. Declined and cancelled events are left out. */
+  agenda(startIso: string, endIso: string): Promise<AgendaEvent[]>;
   /** Events (on any calendar) overlapping the time range, ignoring all-day, declined and "free" ones. */
   overlapping(startIso: string, endIso: string, ignorePlanId?: string): Promise<BusyEvent[]>;
   /** The event Jarvis made for this plan, if it exists. */
@@ -79,6 +87,19 @@ export function createCalendarClient(auth: { getAccessToken(force?: boolean): Pr
   });
 
   return {
+    async agenda(startIso, endIso) {
+      const res = await call<{ items?: GEvent[] }>("GET", "/calendars/primary/events", undefined, { timeMin: startIso, timeMax: endIso, singleEvents: "true", orderBy: "startTime", maxResults: "50" });
+      const out: AgendaEvent[] = [];
+      for (const ev of res?.items ?? []) {
+        if (ev.status === "cancelled" || ev.attendees?.some((a) => a.self && a.responseStatus === "declined")) continue;
+        const allDay = !ev.start?.dateTime;
+        const start = ev.start?.dateTime ?? (ev.start?.date ? `${ev.start.date}T00:00:00` : null);
+        const end = ev.end?.dateTime ?? (ev.end?.date ? `${ev.end.date}T00:00:00` : null);
+        if (start && end) out.push({ summary: ev.summary ?? "(no title)", startIso: start, endIso: end, allDay });
+      }
+      return out;
+    },
+
     async overlapping(startIso, endIso, ignorePlanId) {
       const list = await call<{ items?: { id: string; summary?: string; accessRole?: string; selected?: boolean }[] }>("GET", "/users/me/calendarList");
       const found: BusyEvent[] = [];
