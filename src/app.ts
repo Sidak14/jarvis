@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { config } from "./config";
 import { db } from "./db";
+import { isHomeNetworkRequest } from "./fridge/access";
 import { homeRoutes } from "./fridge/routes";
 import { gmailRoutes } from "./gmail/routes";
 import { calendarRoutes, plansRoutes } from "./plans/routes";
@@ -29,6 +30,12 @@ export const app = new Hono();
 app.use("*", async (c, next) => {
   await next();
   console.log(`[http] ${c.req.method} ${new URL(c.req.url).pathname} ${c.res.status}`);
+});
+
+// Jarvis also listens on the home network (for the fridge). A device there can reach /dashboard and nothing else.
+app.use("*", async (c, next) => {
+  if (isHomeNetworkRequest(c) && !/^\/dashboard(\/|$)/.test(new URL(c.req.url).pathname)) return c.text("Forbidden", 403);
+  await next();
 });
 
 app.get("/health", (c) => c.json({ ok: true }));

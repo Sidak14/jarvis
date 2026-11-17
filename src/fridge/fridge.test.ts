@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Hono } from "hono";
-import { checkAccess, createHomeIps, dashboardLogin, type AccessDeps } from "./access";
+import { checkAccess, dashboardLogin, isHomeNetwork, type AccessDeps } from "./access";
 import type { GarageAction, GarageState } from "./garage";
 import { haClient, type HaClient, type LightState } from "./ha";
 import { LIGHTS, NEVER_SWITCH } from "./lights";
@@ -12,11 +12,12 @@ const HOST = "jarvis.test";
 const LOCAL = "127.0.0.1:8080";
 
 // ---- who may open it
-const access = (over: Partial<AccessDeps> = {}): AccessDeps => ({ localHosts: [LOCAL], publicHost: HOST, emails: ["me@example.com"], homeIps: () => ["203.0.113.5"], ...over });
-async function verdict(headers: Record<string, string>, deps = access()) {
+const access = (over: Partial<AccessDeps> = {}): AccessDeps => ({ localHosts: [LOCAL], publicHost: HOST, emails: ["me@example.com"], ...over });
+/** `from` is the address of the device on the other end of the connection (what the server really sees). */
+async function verdict(headers: Record<string, string>, deps = access(), from = "127.0.0.1") {
   const app = new Hono();
   app.get("/", (c) => c.json(checkAccess(c, deps)));
-  return (await (await app.request("/", { headers })).json()) as { verdict: string };
+  return (await (await app.request("/", { headers }, { incoming: { socket: { remoteAddress: from } } })).json()) as { verdict: string };
 }
 
 describe("dashboard access", () => {
@@ -24,8 +25,21 @@ describe("dashboard access", () => {
     assert.equal((await verdict({ host: LOCAL })).verdict, "local");
   });
 
-  it("lets in the home network through the tunnel, with no login", async () => {
-    assert.equal((await verdict({ host: HOST, "cf-connecting-ip": "203.0.113.5" })).verdict, "home");
+  it("lets in a device on the home network that connects directly, with no login", async () => {
+    assert.equal((await verdict({ host: "192.168.1.20:8080" }, access(), "192.168.1.50")).verdict, "lan");
+    assert.equal((await verdict({ host: "192.168.1.20:8080" }, access(), "::ffff:10.0.0.7")).verdict, "lan");
+  });
+
+  it("does not treat the internet, or a tunnel request, as the home network", async () => {
+    assert.equal((await verdict({ host: "192.168.1.20:8080" }, access(), "203.0.113.5")).verdict, "denied");
+    // through Cloudflare the connection comes from this Mac, and the header names the real client
+    assert.equal((await verdict({ host: HOST, "cf-connecting-ip": "192.168.1.50" }, access(), "192.168.1.50")).verdict, "denied");
+    assert.equal((await verdict({ host: "192.168.1.20:8080" }, access(), "")).verdict, "denied");
+  });
+
+  it("knows which addresses are home", () => {
+    for (const ok of ["192.168.0.4", "10.1.2.3", "172.16.0.1", "172.31.255.1", "::ffff:192.168.1.9", "fe80::1", "fd12::5"]) assert.ok(isHomeNetwork(ok), ok);
+    for (const no of ["", "127.0.0.1", "8.8.8.8", "172.32.0.1", "172.15.0.1", "203.0.113.5", "::1"]) assert.ok(!isHomeNetwork(no), no);
   });
 
   it("lets in an allowed email that Cloudflare Access logged in (any capitals)", async () => {
@@ -49,25 +63,7 @@ describe("dashboard access", () => {
     app.use("*", dashboardLogin(access()));
     app.get("/", (c) => c.text("hi"));
     assert.equal((await app.request("/", { headers: { host: HOST, "cf-connecting-ip": "198.51.100.1" } })).status, 403);
-    assert.equal((await app.request("/", { headers: { host: HOST, "cf-connecting-ip": "203.0.113.5" } })).status, 200);
-  });
-});
-
-describe("home network address", () => {
-  const trace = (ip: string) => async () => new Response(`fl=1\nip=${ip}\nts=1\n`);
-  it("finds our public IP from Cloudflare's trace, keeps the old one if a lookup fails, and adds the extra ones", async () => {
-    const t = { now: 0 };
-    let fetchFn: typeof fetch = trace("203.0.113.5") as unknown as typeof fetch;
-    const ips = createHomeIps({ extra: ["198.51.100.2"], fetchFn: (...a) => fetchFn(...a), now: () => t.now });
-    assert.deepEqual(ips.get(), ["198.51.100.2"]); // not known yet
-    await ips.refresh();
-    assert.deepEqual(ips.get(), ["198.51.100.2", "203.0.113.5"]);
-    fetchFn = (async () => { throw new Error("offline"); }) as unknown as typeof fetch;
-    await ips.refresh();
-    assert.deepEqual(ips.get(), ["198.51.100.2", "203.0.113.5"]);
-    fetchFn = trace("203.0.113.77") as unknown as typeof fetch;
-    await ips.refresh();
-    assert.ok(ips.get().includes("203.0.113.77") && !ips.get().includes("203.0.113.5"));
+    assert.equal((await app.request("/", { headers: { host: LOCAL } }, { incoming: { socket: { remoteAddress: "127.0.0.1" } } })).status, 200);
   });
 });
 

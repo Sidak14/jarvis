@@ -3,7 +3,9 @@ import path from "node:path";
 import { z } from "zod";
 
 export const ROOT = path.resolve(__dirname, "..");
-export const HOST = "127.0.0.1"; // fixed on purpose: never listen on other interfaces
+// Listens on this Mac AND the home network, so the fridge can open http://<this Mac>:8080/dashboard without Cloudflare.
+// A device on the home network can reach ONLY /dashboard (app.ts refuses everything else); the router must not forward port 8080.
+export const HOST = "0.0.0.0";
 
 const envPath = path.join(ROOT, ".env");
 if (fs.existsSync(envPath)) {
@@ -87,16 +89,11 @@ const schema = z.object({
   HA_URL: z.url().default("http://127.0.0.1:8123"),
   HA_TOKEN: z.string().min(1).optional(),
   // The home screen (/dashboard, the kitchen fridge). Who may open it through the Cloudflare tunnel: the emails Cloudflare Access
-  // logged in (comma separated). Anyone on the home network is let in too (see src/fridge/access.ts). Unset = tunnel logins are refused.
+  // logged in (comma separated). Anyone on the home network can open it directly, with no login (see src/fridge/access.ts). Unset = tunnel logins are refused.
   DASHBOARD_EMAILS: z
     .string()
     .default("")
     .transform((v) => v.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean)),
-  // Extra public IPs that count as "home" (comma separated), on top of the one Jarvis finds by itself. Optional.
-  DASHBOARD_HOME_IPS: z
-    .string()
-    .default("")
-    .transform((v) => v.split(",").map((e) => e.trim()).filter(Boolean)),
 
   // Google Sheets for expenses. Optional: without them expenses are stored and the sync waits.
   GOOGLE_SHEET_ID: z.string().min(1).optional(),
@@ -145,6 +142,5 @@ export function redactedConfig(): Record<string, string | number | boolean | und
     TELEGRAM_OWNER_ID: config.TELEGRAM_OWNER_ID ? "***" : undefined,
     HA_TOKEN: config.HA_TOKEN ? "***" : undefined,
     DASHBOARD_EMAILS: config.DASHBOARD_EMAILS.length ? `${config.DASHBOARD_EMAILS.length} email(s)` : "none",
-    DASHBOARD_HOME_IPS: config.DASHBOARD_HOME_IPS.length ? `${config.DASHBOARD_HOME_IPS.length} ip(s)` : "none",
   };
 }

@@ -307,13 +307,15 @@ Google Calendar, never the event names), **where people are** (you, from the loc
 **garage door**. Dark theme, plain old-browser-friendly HTML/CSS/JS (`public/fridge.css`, `public/fridge.js`, `src/fridge/`).
 It is linked from the main page's nav ("Dashboard"). `/fridge` redirects to it.
 
-- **No code. Who may open it** (`src/fridge/access.ts`): (1) this Mac, (2) anyone on the **home network** (their requests reach
-  Cloudflare from our public IP, which Jarvis looks up itself from Cloudflare's trace page every 10 minutes; `DASHBOARD_HOME_IPS`
-  adds more), (3) someone **Cloudflare Access logged in** whose email is on `DASHBOARD_EMAILS` in `.env`. Everyone else gets 403.
-  Refusals are logged with the IP (`[home] refused ...`).
-- **Cloudflare setup** (Zero Trust > Access > Applications, for `<PUBLIC_HOST>/dashboard`): an **Allow** policy for the emails, and
-  a **Bypass** policy for your home IP (the line `[home] home network is x.x.x.x` in the log). Without the bypass the fridge sees
-  Cloudflare's login page. Never bypass everyone: Jarvis only trusts the IP rule.
+- **No code. Who may open it** (`src/fridge/access.ts`): (1) this Mac, (2) any device on the **home network** that connects
+  directly, with no login: the fridge opens `http://<this Mac's home address>:8080/dashboard` (give the Mac a fixed address in the
+  router, a DHCP reservation), (3) someone **Cloudflare Access logged in** through the tunnel whose email is on `DASHBOARD_EMAILS`
+  in `.env`. Everyone else gets 403 (logged as `[home] refused ...`).
+- **Jarvis listens on the home network too** (`HOST` is `0.0.0.0`). `app.ts` makes a device there reach `/dashboard` and nothing
+  else, and the webhooks still need their secret. Do not forward port 8080 on the router. The traffic is plain http on your Wi-Fi.
+- **Cloudflare setup** (only for use away from home): an Access application for `<PUBLIC_HOST>/dashboard` with an **Allow** policy
+  listing the emails that may log in (Cloudflare sends the login code, so it has to know them). `DASHBOARD_EMAILS` is the app's own
+  second check. No Bypass policy is needed.
 - **Home Assistant** needs `HA_URL` and `HA_TOKEN`. The page sends a light id and "on"/"off"; the server looks the entity up in
   `src/fridge/lights.ts` (that list is the whole permission, and `NEVER_SWITCH` is refused even if added by mistake).
 - **Garage:** the status is `sensor.garage_door_status` and the button calls `cover.open_cover` / `cover.close_cover` on

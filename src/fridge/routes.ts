@@ -6,7 +6,7 @@ import { db } from "../db";
 import { currentLocation } from "../location/store";
 import { calendarAuth } from "../plans/index";
 import { createCalendarClient } from "../plans/calendar";
-import { checkAccess, createHomeIps, dashboardLogin, type AccessDeps } from "./access";
+import { checkAccess, dashboardLogin, type AccessDeps } from "./access";
 import type { GarageAction } from "./garage";
 import { haClient, type HaClient } from "./ha";
 import { LIGHTS, lightById } from "./lights";
@@ -126,9 +126,6 @@ export function createHomeApp(deps: HomeDeps): Hono {
 }
 
 // ---- the real one
-const homeIps = createHomeIps({ extra: config.DASHBOARD_HOME_IPS, log: (m) => console.log(`[home] ${m}`) });
-void homeIps.refresh();
-
 const WEEK_CACHE_MS = 5 * 60_000;
 let weekCache: { at: number; days: DayBusy[] } | null = null;
 
@@ -137,7 +134,6 @@ export const homeRoutes = createHomeApp({
     localHosts: [`127.0.0.1:${config.PORT}`, `localhost:${config.PORT}`],
     publicHost: config.PUBLIC_HOST,
     emails: config.DASHBOARD_EMAILS,
-    homeIps: homeIps.get,
     log: (m) => console.log(`[home] ${m}`),
   },
   ha: config.HA_TOKEN ? haClient(config.HA_URL, config.HA_TOKEN) : null,
