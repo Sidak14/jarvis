@@ -1,5 +1,6 @@
 import { GARAGE_COVER, GARAGE_OPENER, GARAGE_STATUS, garageState, type Garage, type GarageAction } from "./garage";
 import { NEVER_SWITCH } from "./lights";
+import { TV_KEYS, TV_PLAYER, TV_REMOTE, type Tv, type TvKey } from "./tv";
 
 // A tiny Home Assistant client for the fridge page: read some switch states, turn one on or off. The token stays on
 // the server; the browser never sees it.
@@ -13,6 +14,13 @@ export interface HaClient {
   garage(): Promise<Garage>;
   /** Press Open or Close. Home Assistant ignores it if the door is not in the right state or is already moving. */
   pressGarage(action: GarageAction): Promise<void>;
+  tv(): Promise<Tv>;
+  /** Send one remote key. Power turns the TV on through Home Assistant when it is off (the remote only works while it is on). */
+  tvKey(key: TvKey): Promise<void>;
+  /** Switch input. Only a source the TV itself lists is sent. Returns false if it is not one. */
+  tvSource(source: string): Promise<boolean>;
+  /** A still picture from a camera (a JPEG). */
+  snapshot(entity: string): Promise<{ type: string; body: ArrayBuffer }>;
 }
 
 type FetchFn = (url: string, init?: RequestInit) => Promise<Response>;
@@ -64,6 +72,47 @@ export function haClient(baseUrl: string, token: string, fetchFn: FetchFn = fetc
         signal: AbortSignal.timeout(5000),
       });
       if (!res.ok) throw new Error(`Home Assistant answered ${res.status}`);
+    },
+
+    async tv() {
+      const res = await fetchFn(`${base}/api/states/${TV_PLAYER}`, { headers, signal: AbortSignal.timeout(4000) });
+      if (!res.ok) throw new Error(`Home Assistant answered ${res.status}`);
+      const s = (await res.json()) as { state?: string; attributes?: { volume_level?: number; is_volume_muted?: boolean; source?: string; source_list?: string[] } };
+      const a = s.attributes ?? {};
+      return {
+        state: s.state === "on" || s.state === "off" ? s.state : "unavailable",
+        muted: a.is_volume_muted === true,
+        volume: typeof a.volume_level === "number" ? Math.round(a.volume_level * 100) : null,
+        sources: Array.isArray(a.source_list) ? a.source_list.filter((x) => typeof x === "string") : [],
+        source: typeof a.source === "string" ? a.source : null,
+      };
+    },
+
+    async tvKey(key) {
+      const on = key === "power" && (await this.tv()).state !== "on";
+      const [path, body] = on
+        ? ["media_player/turn_on", { entity_id: TV_PLAYER }]
+        : ["remote/send_command", { entity_id: TV_REMOTE, command: TV_KEYS[key] }];
+      const res = await fetchFn(`${base}/api/services/${path}`, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) });
+      if (!res.ok) throw new Error(`Home Assistant answered ${res.status}`);
+    },
+
+    async tvSource(source) {
+      if (!(await this.tv()).sources.includes(source)) return false;
+      const res = await fetchFn(`${base}/api/services/media_player/select_source`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ entity_id: TV_PLAYER, source }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) throw new Error(`Home Assistant answered ${res.status}`);
+      return true;
+    },
+
+    async snapshot(entity) {
+      const res = await fetchFn(`${base}/api/camera_proxy/${entity}`, { headers, signal: AbortSignal.timeout(10_000) });
+      if (!res.ok) throw new Error(`Home Assistant answered ${res.status}`);
+      return { type: res.headers.get("content-type") ?? "image/jpeg", body: await res.arrayBuffer() };
     },
   };
 }

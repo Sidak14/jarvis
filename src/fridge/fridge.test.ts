@@ -4,7 +4,9 @@ import { Hono } from "hono";
 import { checkAccess, dashboardLogin, isHomeNetwork, type AccessDeps } from "./access";
 import type { Garage, GarageAction, GarageState } from "./garage";
 import { haClient, type HaClient, type LightState } from "./ha";
-import { LIGHTS, NEVER_SWITCH } from "./lights";
+import { ALL_LIGHTS, LIGHTS, NEVER_SWITCH } from "./lights";
+import { CAMERAS } from "./cameras";
+import { TV_KEYS, type Tv, type TvKey } from "./tv";
 import { createHomeApp } from "./routes";
 import { rangeLabel, weekBusy } from "./week";
 
@@ -165,6 +167,25 @@ describe("haClient", () => {
     ]);
   });
 
+  it("reads the TV, sends a remote key, and turns the TV on through Home Assistant when it is off", async () => {
+    const calls: { url: string; body: string | undefined }[] = [];
+    let state = "on";
+    const ha = haClient("http://ha.test", "T", async (url, init) => {
+      calls.push({ url, body: init?.body as string | undefined });
+      return json(url.includes("/api/states/") ? { state, attributes: { volume_level: 0.13, is_volume_muted: false, source: "TV", source_list: ["TV", "HDMI"] } } : []);
+    });
+    assert.deepEqual(await ha.tv(), { state: "on", muted: false, volume: 13, sources: ["TV", "HDMI"], source: "TV" });
+    calls.length = 0;
+    await ha.tvKey("vol_up");
+    assert.deepEqual(calls, [{ url: "http://ha.test/api/services/remote/send_command", body: '{"entity_id":"remote.samsung_the_frame_55_qa55ls03aawxxy","command":"KEY_VOLUP"}' }]);
+    state = "off";
+    calls.length = 0;
+    await ha.tvKey("power");
+    assert.equal(calls[calls.length - 1].url, "http://ha.test/api/services/media_player/turn_on");
+    assert.equal(await ha.tvSource("Netflix"), false);
+    assert.equal(await ha.tvSource("HDMI"), true);
+  });
+
   it("an odd garage status is 'unavailable'", async () => {
     const ha = haClient("http://ha.test", "T", async () => json({ state: "unknown" }));
     assert.deepEqual(await ha.garage(), { state: "unavailable", opener: false });
@@ -180,6 +201,8 @@ describe("haClient", () => {
 describe("the light list", () => {
   it("never contains a switch that must not be switched, and has unique ids", () => {
     for (const l of LIGHTS) assert.ok(!NEVER_SWITCH.includes(l.entity), `${l.id} is a never-switch entity`);
+    for (const l of ALL_LIGHTS) assert.equal(NEVER_SWITCH.includes(l.entity), l.locked === true, `${l.id}: a never-switch light must be locked, and only those`);
+    assert.ok(LIGHTS.every((l) => ALL_LIGHTS.includes(l)));
     assert.equal(new Set(LIGHTS.map((l) => l.id)).size, LIGHTS.length);
     assert.equal(new Set(LIGHTS.map((l) => l.entity)).size, LIGHTS.length);
   });
@@ -194,6 +217,10 @@ function fakeHa() {
   for (const l of LIGHTS) states[l.entity] = "off";
   const switched: { entity: string; on: boolean }[] = [];
   const pressed: GarageAction[] = [];
+  const keys: TvKey[] = [];
+  const sources: string[] = [];
+  const snapshots: string[] = [];
+  const tv: Tv = { state: "on", muted: false, volume: 13, sources: ["TV", "HDMI"], source: "TV" };
   let garage: GarageState = "closed";
   const ha: HaClient = {
     async states(entities) {
@@ -211,8 +238,23 @@ function fakeHa() {
     async pressGarage(action) {
       pressed.push(action);
     },
+    async tv() {
+      return tv;
+    },
+    async tvKey(key) {
+      keys.push(key);
+    },
+    async tvSource(source) {
+      if (!tv.sources.includes(source)) return false;
+      sources.push(source);
+      return true;
+    },
+    async snapshot(entity) {
+      snapshots.push(entity);
+      return { type: "image/jpeg", body: new TextEncoder().encode("jpeg-bytes").buffer as ArrayBuffer };
+    },
   };
-  return { ha, states, switched, pressed, setGarage: (g: GarageState) => (garage = g) };
+  return { ha, states, switched, pressed, keys, sources, snapshots, setGarage: (g: GarageState) => (garage = g) };
 }
 
 const IN = { host: LOCAL }; // this Mac: let in
@@ -256,7 +298,7 @@ describe("home screen routes", () => {
 
   it("serves its own css and js, and nothing else from /public", async () => {
     const { app } = make();
-    for (const f of ["fridge.css", "fridge.js"]) assert.equal((await app.request(`/assets/${f}`, { headers: IN })).status, 200, f);
+    for (const f of ["fridge.css", "home.js", "home-common.js"]) assert.equal((await app.request(`/assets/${f}`, { headers: IN })).status, 200, f);
     assert.equal((await app.request("/assets/dashboard.css", { headers: IN })).status, 404);
     assert.equal((await app.request("/assets/../package.json", { headers: IN })).status, 404);
   });
@@ -305,6 +347,7 @@ describe("home screen routes", () => {
     assert.equal((await post(app, "/api/lights/nope", { on: true })).status, 404);
     assert.equal((await post(app, "/api/lights/switch.shellyswitch25_c8c9a37a653a_channel_2", { on: true })).status, 404);
     assert.equal((await post(app, "/api/lights/frontyard-top-lights", { on: true })).status, 404);
+    assert.equal((await post(app, "/api/lights/frontyard-top", { on: true })).status, 403, "listed, but locked");
     assert.equal((await post(app, "/api/lights/chandelier", { on: "yes" })).status, 400);
     assert.equal((await post(app, "/api/lights/chandelier", {})).status, 400);
     assert.deepEqual(switched, []);
@@ -318,6 +361,63 @@ describe("home screen routes", () => {
     assert.equal((await post(app, "/api/garage", { action: "toggle" })).status, 400);
     assert.equal((await post(app, "/api/garage", {})).status, 400);
     assert.deepEqual(pressed, ["open", "close"]);
+  });
+
+  it("the Lights page lists every light, with the locked one shown as locked and no entity ids", async () => {
+    const { app } = make();
+    const body = (await (await app.request("/api/lights", { headers: IN })).json()) as { lights: { id: string; state: string; locked: boolean }[] };
+    assert.equal(body.lights.length, ALL_LIGHTS.length);
+    assert.ok(body.lights.length > LIGHTS.length);
+    assert.deepEqual(body.lights.filter((l) => l.locked).map((l) => [l.id, l.state]), [["frontyard-top", "locked"]]);
+    assert.ok(!JSON.stringify(body).includes("switch."));
+  });
+
+  it("switches an extra light that is only on the Lights page", async () => {
+    const { app, switched } = make();
+    assert.equal((await post(app, "/api/lights/entrance", { on: true })).status, 200);
+    assert.deepEqual(switched, [{ entity: "switch.shellyswitch25_c8c9a375c8b2_channel_2", on: true }]);
+  });
+
+  it("each page is served, with the tabs, and a stranger can't see any of them", async () => {
+    const { app } = make();
+    for (const [path, word] of [["/lights", "All lights"], ["/tv", "Power"], ["/cameras", "Cameras"]] as const) {
+      const html = await (await app.request(path, { headers: IN })).text();
+      assert.ok(html.includes(word), path);
+      assert.ok(html.includes('href="/dashboard/tv"') && html.includes('href="/dashboard/cameras"') && html.includes('href="/dashboard/lights"'), `${path} has the tabs`);
+      assert.equal((await app.request(path, { headers: { host: HOST, "cf-connecting-ip": "198.51.100.1" } })).status, 403);
+    }
+    for (const f of ["home-common.js", "home.js", "lights.js", "tv.js", "cameras.js"]) assert.equal((await app.request(`/assets/${f}`, { headers: IN })).status, 200, f);
+  });
+
+  it("sends only the TV keys it knows, and only inputs the TV lists", async () => {
+    const { app, keys, sources } = make();
+    for (const k of Object.keys(TV_KEYS)) assert.equal((await post(app, "/api/tv", { key: k })).status, 200, k);
+    assert.equal(keys.length, Object.keys(TV_KEYS).length);
+    keys.length = 0;
+    assert.equal((await post(app, "/api/tv", { key: "KEY_POWER" })).status, 400, "raw codes are refused");
+    assert.equal((await post(app, "/api/tv", { key: "factory_reset" })).status, 400);
+    assert.equal((await post(app, "/api/tv", {})).status, 400);
+    assert.equal((await post(app, "/api/tv", { source: "Netflix" })).status, 400);
+    assert.equal((await post(app, "/api/tv", { source: "HDMI" })).status, 200);
+    assert.deepEqual([keys, sources], [[], ["HDMI"]]);
+    const noHeader = await app.request("/api/tv", { method: "POST", headers: { ...IN, "content-type": "application/json" }, body: JSON.stringify({ key: "up" }) });
+    assert.equal(noHeader.status, 403);
+    const state = (await (await app.request("/api/tv", { headers: IN })).json()) as { tv: Tv };
+    assert.equal(state.tv.volume, 13);
+  });
+
+  it("shows camera pictures for known cameras only, keeps them a moment, and never the token or entity", async () => {
+    const { app, snapshots } = make();
+    const list = JSON.stringify(await (await app.request("/api/cameras", { headers: IN })).json());
+    assert.ok(!list.includes("camera.dahua"));
+    const one = await app.request("/api/camera/cam1", { headers: IN });
+    assert.equal(one.status, 200);
+    assert.equal(one.headers.get("content-type"), "image/jpeg");
+    assert.equal(await one.text(), "jpeg-bytes");
+    await app.request("/api/camera/cam1", { headers: IN });
+    assert.deepEqual(snapshots, [CAMERAS[0].entity], "the second look came from the short keep");
+    assert.equal((await app.request("/api/camera/camera.dahua_mediaprofile_channel2_substream1", { headers: IN })).status, 404);
+    assert.equal((await app.request("/api/camera/nope", { headers: IN })).status, 404);
   });
 
   it("does not press the garage when the sensor or the opener can't be read", async () => {
@@ -338,7 +438,7 @@ describe("home screen routes", () => {
     assert.equal((await post(noHa.app, "/api/garage", { action: "open" })).status, 503);
 
     const down = async () => { throw new Error("down"); };
-    const broken = make({ ha: { states: down, setSwitch: down, garage: down, pressGarage: down } });
+    const broken = make({ ha: { states: down, setSwitch: down, garage: down, pressGarage: down, tv: down, tvKey: down, tvSource: down, snapshot: down } });
     const body = (await (await broken.app.request("/api/state", { headers: IN })).json()) as { error: string };
     assert.match(body.error, /isn't answering/);
     assert.equal((await post(broken.app, "/api/lights/chandelier", { on: true })).status, 502);

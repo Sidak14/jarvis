@@ -304,7 +304,7 @@ step, no framework, no external fonts, scripts or analytics. Times are Australia
 
 One page for the kitchen fridge, 1080x1920 portrait (it scales to other screens): the **next 7 days** (times you are busy, from
 Google Calendar, never the event names), **where people are** (you, from the location webhook), the **lights**, and the
-**garage door**. Dark theme, plain old-browser-friendly HTML/CSS/JS (`public/fridge.css`, `public/fridge.js`, `src/fridge/`).
+**garage door**. Dark theme, plain old-browser-friendly HTML/CSS/JS (`public/fridge.css`, `public/home*.js`, `public/lights.js`, `tv.js`, `cameras.js`, `src/fridge/`).
 It is linked from the main page's nav ("Dashboard"). `/fridge` redirects to it.
 
 - **No code. Who may open it** (`src/fridge/access.ts`): (1) this Mac, (2) any device on the **home network** that connects
@@ -316,6 +316,12 @@ It is linked from the main page's nav ("Dashboard"). `/fridge` redirects to it.
 - **Cloudflare setup** (only for use away from home): an Access application for `<PUBLIC_HOST>/dashboard` with an **Allow** policy
   listing the emails that may log in (Cloudflare sends the login code, so it has to know them). `DASHBOARD_EMAILS` is the app's own
   second check. No Bypass policy is needed.
+- **Pages** (tabs along the bottom): **Home** (`/dashboard`), **Lights** (`/dashboard/lights`: every light, from `ALL_LIGHTS`;
+  Frontyard Top Lights is listed as **Locked** and can never be switched), **TV** (`/dashboard/tv`: a remote for the Samsung
+  Frame; the page sends key names, `src/fridge/tv.ts` maps them, nothing else can reach the TV) and **Cameras**
+  (`/dashboard/cameras`: the six NVR cameras as pictures that refresh every few seconds, tap one for a big view; Jarvis fetches
+  the pictures from Home Assistant and keeps each 1.5 seconds, so the token never reaches the screen). Camera names are in
+  `src/fridge/cameras.ts` (Home Assistant only calls them Channel 1 to 6).
 - **Home Assistant** needs `HA_URL` and `HA_TOKEN`. The page sends a light id and "on"/"off"; the server looks the entity up in
   `src/fridge/lights.ts` (that list is the whole permission, and `NEVER_SWITCH` is refused even if added by mistake).
 - **Garage:** the status is `sensor.garage_door_status` and the button calls `cover.open_cover` / `cover.close_cover` on
@@ -324,7 +330,7 @@ It is linked from the main page's nav ("Dashboard"). `/fridge` redirects to it.
 - **Busy times:** `GET /dashboard/api/week`, cached 5 minutes; needs the calendar login (`/calendar/login`).
 - **Reaching it:** `http://127.0.0.1:8080/dashboard` on this Mac, or `https://<PUBLIC_HOST>/dashboard`. The server only listens on
   this Mac (`HOST` in `config.ts`).
-- **Changing `fridge.css` / `fridge.js`:** bump `HOME_ASSET_VERSION` in `src/fridge/page.ts`.
+- **Changing the css or js in `public/`:** bump `HOME_ASSET_VERSION` in `src/fridge/page.ts`.
 
 ## Notes
 

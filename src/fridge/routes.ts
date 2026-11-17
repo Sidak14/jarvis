@@ -8,9 +8,11 @@ import { calendarAuth } from "../plans/index";
 import { createCalendarClient } from "../plans/calendar";
 import { checkAccess, dashboardLogin, type AccessDeps } from "./access";
 import type { GarageAction } from "./garage";
+import { CAMERAS, cameraById } from "./cameras";
 import { haClient, type HaClient } from "./ha";
-import { LIGHTS, lightById } from "./lights";
-import { homePage } from "./page";
+import { ALL_LIGHTS, LIGHTS, lightById } from "./lights";
+import { camerasPage, homePage, lightsPage, tvPage } from "./page";
+import { isTvKey } from "./tv";
 import { weekBusy, type DayBusy } from "./week";
 
 // The home screen, /dashboard: the next 7 days (times busy), where people are, the lights, and the garage door.
@@ -33,10 +35,18 @@ export interface HomeDeps {
   publicDir?: string;
 }
 
+const JS = "text/javascript; charset=utf-8";
 const ASSETS: Record<string, string> = {
   "fridge.css": "text/css; charset=utf-8",
-  "fridge.js": "text/javascript; charset=utf-8",
+  "home-common.js": JS,
+  "home.js": JS,
+  "lights.js": JS,
+  "tv.js": JS,
+  "cameras.js": JS,
 };
+
+/** A camera picture is kept this long, so a few screens watching do not each ask the camera. */
+const SNAPSHOT_MS = 1500;
 
 export function createHomeApp(deps: HomeDeps): Hono {
   const app = new Hono();
@@ -56,6 +66,9 @@ export function createHomeApp(deps: HomeDeps): Hono {
   const fromOurPage = (c: Context): boolean => c.req.header("x-fridge") === "1";
 
   app.get("/", (c) => c.html(homePage()));
+  app.get("/lights", (c) => c.html(lightsPage()));
+  app.get("/tv", (c) => c.html(tvPage()));
+  app.get("/cameras", (c) => c.html(camerasPage()));
 
   app.get("/assets/:file", (c) => {
     const name = c.req.param("file");
@@ -79,6 +92,17 @@ export function createHomeApp(deps: HomeDeps): Hono {
     return c.json({ people, lights, garage, error: lights === null && garage === null ? "Home Assistant isn't answering" : undefined });
   });
 
+  // Every light, for the Lights page. A locked light is listed but can't be switched.
+  app.get("/api/lights", async (c) => {
+    if (!deps.ha) return c.json({ error: "Home Assistant isn't set up" });
+    try {
+      const states = await deps.ha.states(ALL_LIGHTS.map((l) => l.entity));
+      return c.json({ lights: ALL_LIGHTS.map((l) => ({ id: l.id, name: l.name, icon: l.icon, locked: l.locked === true, state: l.locked ? "locked" : (states[l.entity] ?? "unavailable") })) });
+    } catch {
+      return c.json({ error: "Home Assistant isn't answering" });
+    }
+  });
+
   // Busy times: from Google Calendar, so slower and changes rarely.
   app.get("/api/week", async (c) => {
     try {
@@ -93,6 +117,7 @@ export function createHomeApp(deps: HomeDeps): Hono {
     if (!fromOurPage(c)) return c.json({ error: "bad request" }, 403);
     const light = lightById(c.req.param("id"));
     if (!light) return c.json({ error: "unknown light" }, 404);
+    if (light.locked) return c.json({ error: `${light.name} is locked: switching it on trips the main circuit` }, 403);
     const body = (await c.req.json().catch(() => null)) as { on?: unknown } | null;
     if (typeof body?.on !== "boolean") return c.json({ error: "bad request" }, 400);
     if (!deps.ha) return c.json({ error: "Home Assistant isn't set up" }, 503);
@@ -124,6 +149,50 @@ export function createHomeApp(deps: HomeDeps): Hono {
     console.log(`[home] garage ${body.action} (${who.verdict}${who.email ? ` ${who.email}` : ""})`);
     return c.json({ ok: true });
   });
+
+  // The TV: its state, one remote key, or an input. Keys are names from tv.ts, never codes from the page.
+  app.get("/api/tv", async (c) => {
+    if (!deps.ha) return c.json({ error: "Home Assistant isn't set up" });
+    try {
+      return c.json({ tv: await deps.ha.tv() });
+    } catch {
+      return c.json({ error: "Home Assistant isn't answering" });
+    }
+  });
+  app.post("/api/tv", async (c) => {
+    if (!fromOurPage(c)) return c.json({ error: "bad request" }, 403);
+    const body = (await c.req.json().catch(() => null)) as { key?: unknown; source?: unknown } | null;
+    if (!deps.ha) return c.json({ error: "Home Assistant isn't set up" }, 503);
+    try {
+      if (isTvKey(body?.key)) await deps.ha.tvKey(body!.key);
+      else if (typeof body?.source === "string") {
+        if (!(await deps.ha.tvSource(body.source))) return c.json({ error: "the TV has no such input" }, 400);
+      } else return c.json({ error: "bad request" }, 400);
+    } catch (err) {
+      console.error("[home] TV command failed:", (err as Error).message);
+      return c.json({ error: "The TV didn't answer" }, 502);
+    }
+    return c.json({ ok: true });
+  });
+
+  // Camera pictures, proxied so the Home Assistant token never reaches the screen.
+  const pictures = new Map<string, { at: number; type: string; body: ArrayBuffer }>();
+  app.get("/api/camera/:id", async (c) => {
+    const camera = cameraById(c.req.param("id"));
+    if (!camera) return c.json({ error: "unknown camera" }, 404);
+    if (!deps.ha) return c.json({ error: "Home Assistant isn't set up" }, 503);
+    let picture = pictures.get(camera.id);
+    if (!picture || Date.now() - picture.at > SNAPSHOT_MS) {
+      try {
+        picture = { at: Date.now(), ...(await deps.ha.snapshot(camera.entity)) };
+        pictures.set(camera.id, picture);
+      } catch {
+        if (!picture) return c.json({ error: "Camera isn't answering" }, 502);
+      }
+    }
+    return new Response(picture.body, { headers: { "Content-Type": picture.type, "Cache-Control": "no-store" } });
+  });
+  app.get("/api/cameras", (c) => c.json({ cameras: CAMERAS.map((cam) => ({ id: cam.id, name: cam.name })) }));
 
   return app;
 }
