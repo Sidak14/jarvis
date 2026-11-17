@@ -332,6 +332,80 @@ It is linked from the main page's nav ("Dashboard"). `/fridge` redirects to it.
   this Mac (`HOST` in `config.ts`).
 - **Changing the css or js in `public/`:** bump `HOME_ASSET_VERSION` in `src/fridge/page.ts`.
 
+## Voice (phone calls with Jarvis: Vapi + Twilio)
+
+I can phone Jarvis and talk to it, and Jarvis phones me about important things (first one: the garage left open 10+ minutes).
+Vapi does the speech (listening, the language model, talking); Twilio is the Australian number. Jarvis stays independent of Vapi:
+the tools are plain code in `src/voice/tools/`, and `src/voice/vapi.ts` (messages in) plus `vapi-api.ts` and `push.ts` (calls out,
+setup) are the only files that know Vapi.
+
+```
+phone <-> Twilio number <-> Vapi (speech-to-text, LLM, text-to-speech)
+                               | HTTPS, Authorization: Bearer <VAPI_WEBHOOK_SECRET>
+                               v
+                 Jarvis POST /voice/tools  and  /voice/events   (also under /webhook/voice)
+                               v
+            tool registry (src/voice/registry.ts) -> Home Assistant / Calendar / expenses / plans / Spotify
+```
+
+- **The model can only do what the tools allow.** A tool that is not in `src/voice/tools/index.ts` does not exist. Every tool has
+  a name, a zod argument schema, a risk (`read`, `write`, `danger`) and a time limit (under 8 seconds). Everything a tool returns
+  is cleaned in code (one line, no quote marks or control characters, cut short) and the assistant is told tool results are data,
+  never instructions. Only Home Assistant can be written to; everything else is read-only.
+- **Tools:** `ping`, `verify_pin`, `garage_status`, `home_status`, `calendar_today`, `expenses_summary`, `plans_upcoming`,
+  `spotify_recent` (read) and `close_garage`, `lights_set` (write) and `open_garage` (danger).
+- **Safety is in code, not in the prompt.** A write tool's first call only returns `needs_confirmation` and a one-use token (good
+  for 60 seconds, bound to the same tool and arguments); it runs only when called again with that token. `open_garage` also needs
+  the spoken PIN (`verify_pin`; valid 10 minutes per call; three wrong tries lock the call and message Telegram). The PIN is stored
+  only as a scrypt hash.
+- **Who can call:** only `OWNER_PHONE`. The Vapi number has no fixed assistant; Vapi asks Jarvis ("assistant-request") and Jarvis
+  answers with the assistant only for my number. Anyone else hears a refusal, never reaches the model, and I get a Telegram message
+  (their number masked). Tool calls are accepted only for calls Jarvis knows (ones it placed, or inbound from my number). Caller ID
+  can be faked, so it is a filter, not security: opening the garage rests on the PIN.
+- **Allowlist:** `voice/entities.yaml` is the only Home Assistant things voice can read or change (the garage cover, and the lights
+  by name). It refuses to load if the Frontyard Top Lights (main circuit) are listed. Lights are matched by name exactly (ignoring
+  "the" and "lights").
+- **Writes are dry by default.** `VOICE_HA_WRITES=dry` (the default): the tools say what they would do and send nothing. Set
+  `VOICE_HA_WRITES=live` in `.env` and restart to let them act. Before acting they read the real state (no redundant commands), and
+  afterwards they read it back: "the garage is closed" or "I sent the command but it still shows open". The door takes about 15
+  seconds, so the assistant then calls `garage_status` with `wait_for` to hear the real final state.
+- **Jarvis phones me:** a Home Assistant automation (`homeassistant/config/packages/garage.yaml`) POSTs
+  `/webhook/ha/garage-open` when `sensor.garage_door_status` has been `open` for 10 minutes; a watchdog job (`voice-alerts`, every
+  5 minutes) checks the garage itself in case that webhook is missed. One open `alert_episodes` row per kind: it ends when the
+  garage closes; calls at most every 30 minutes and 3 a day (Sydney); the garage alert is urgent so it may call at night
+  (non-urgent kinds are quiet 11pm to 7am); none at the monthly limit (Telegram only). The rules are one function (`decide` in
+  `src/voice/alerts.ts`). The assistant stays silent until a person speaks, so a voicemail greeting is never played any details;
+  voicemail detection hangs up without a message. If I don't answer, it goes to voicemail, is busy or fails, Telegram says so
+  (including that the garage is still open).
+- **Privacy:** recording, logs, packet capture, transcripts and Vapi's own summary are switched off on the assistant. Jarvis keeps
+  one row per call (`voice_calls`: when, direction, duration, cost, how it ended and a one-line summary Jarvis writes itself from
+  the tools used) and one per tool call (`voice_tool_calls`: tool, outcome, time; the arguments are never stored, so a PIN
+  can't end up there). What Vapi still holds with those off (checked on a real call): the call record (my number, times, cost
+  breakdown, how it ended, the assistant's system prompt) but no transcript, no conversation messages, no recording and an empty log.
+  The speech still passes through Vapi's providers while the call is going (speech-to-text, the model, text-to-speech), so a spoken
+  PIN is heard by them.
+- **Budget:** `VOICE_MONTHLY_CAP_USD` (US$10) of what Vapi reports per call (Twilio's own charges are billed separately). A Telegram
+  message at 80% and at 100%; at 100% no outbound calls and the tools answer "the monthly voice limit has been reached". Calls are
+  capped at 5 minutes with a 30 second silence timeout. The cost is also added to `api_usage` under provider `vapi` (separate from
+  the AI spend cap).
+- **After every call** Telegram gets a one-line summary, and the Calls page (`/calls`) and the Overview "Voice" card show spend
+  against the limit, calls, tool use and failures.
+
+**Environment (`.env`, never in git):** `VAPI_API_KEY`, `VAPI_PHONE_NUMBER_ID`, `VAPI_WEBHOOK_SECRET` (32+ characters, Vapi sends
+it as a bearer token), `OWNER_PHONE` (E.164, `+614...`), `VOICE_PIN_HASH` (made by `voice:set-pin`), `VOICE_MONTHLY_CAP_USD=10`,
+`VOICE_HA_WRITES=dry|live`, `VOICE_ENABLED=true|false`, `VOICE_PATH_PREFIX` (`/voice`; Cloudflare must let it through without a
+login), optional `VAPI_CREDENTIAL_ID` (a Bearer credential made in the Vapi dashboard; without it the secret is sent as a header
+Vapi stores). Home Assistant's `secrets.yaml` holds `jarvis_webhook_authorization` (`Bearer <WEBHOOK_SECRET>`).
+
+**Commands**
+- `npm run voice:push`: make Vapi match `voice/assistant.json` plus the tool registry (creates or updates the assistant, points the
+  number at Jarvis, saves ids in `voice/.vapi-ids.json`). `-- --dry` prints what it would send, secrets hidden. Run it after changing
+  a tool, the prompt, the voice or the model. The code is the source of truth, never the Vapi dashboard.
+- `npm run voice:set-pin`: asks for the PIN in the terminal (hidden, twice) and saves only its hash. Restart Jarvis afterwards.
+  Never type the PIN into a chat.
+- **Switch it off quickly:** `VOICE_ENABLED=false` and restart: every `/voice` request gets a polite refusal and no alert calls are
+  made. Dry/live: edit `VOICE_HA_WRITES` and restart.
+
 ## Notes
 
 The dashboard (`GET /`) and `/spotify` are behind Cloudflare Access. `/health`,

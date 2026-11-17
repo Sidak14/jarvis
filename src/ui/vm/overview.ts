@@ -9,6 +9,7 @@ import { buildGmail, type GmailVM } from "./gmail";
 import { buildJobs, lastOkAt } from "./jobs";
 import { buildPlans, type PlansVM } from "./plans";
 import { buildSpotify, type SpotifyVM } from "./spotify";
+import { buildVoice, voiceModule } from "./voice";
 import type { Fact, Issue, JobVM, ModuleStatus, OverviewVM, State, StatTileVM, UiContext } from "./types";
 
 // The Overview: one ModuleStatus per module, the health banner, and the stat tiles. Each module's state comes from
@@ -263,7 +264,7 @@ export function buildOverview(ctx: UiContext): OverviewVM & { jobs: JobVM[]; ai:
     spotify: buildSpotify(ctx),
     plans: buildPlans(ctx),
   };
-  const modules = [expensesModule(ctx, parts), gmailModule(ctx, parts), spotifyModule(ctx, parts), telegramModule(ctx, parts), plansModule(ctx, parts), beeperModule(ctx, parts)];
+  const modules = [expensesModule(ctx, parts), gmailModule(ctx, parts), spotifyModule(ctx, parts), telegramModule(ctx, parts), plansModule(ctx, parts), beeperModule(ctx, parts), ...(ctx.flags.voice ? [voiceModule(buildVoice(db, now, ctx.flags.voice), jobs)] : [])];
 
   const ai = buildAiUsage(db, now);
   const items: Issue[] = [];

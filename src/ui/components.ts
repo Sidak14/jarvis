@@ -146,7 +146,7 @@ export function BarList(items: { label: string; value: number; text: Part }[]): 
 }
 
 // ---- The page shell
-export type NavKey = "overview" | "expenses" | "plans" | "spotify" | "invoices" | "jobs" | "dashboard";
+export type NavKey = "overview" | "expenses" | "plans" | "spotify" | "invoices" | "jobs" | "calls" | "dashboard";
 const NAV: { key: NavKey; label: string; href: string }[] = [
   { key: "overview", label: "Overview", href: "/" },
   { key: "expenses", label: "Expenses", href: "/expenses" },
@@ -154,6 +154,7 @@ const NAV: { key: NavKey; label: string; href: string }[] = [
   { key: "spotify", label: "Spotify", href: "/spotify" },
   { key: "invoices", label: "Invoices", href: "/gmail" },
   { key: "jobs", label: "Jobs", href: "/jobs" },
+  { key: "calls", label: "Calls", href: "/calls" },
   { key: "dashboard", label: "Dashboard", href: "/dashboard" },
 ];
 

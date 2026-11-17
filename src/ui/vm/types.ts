@@ -127,7 +127,16 @@ export interface RegisteredJob {
   timezone: string | null;
   intervalMs: number;
 }
+export interface VoiceFlags {
+  enabled: boolean;
+  /** Vapi key, webhook secret and my number are all set. */
+  configured: boolean;
+  writesLive: boolean;
+  pinSet: boolean;
+  capUsd: number;
+}
 export interface UiFlags {
+  voice?: VoiceFlags;
   sheetConfigured: boolean;
   gmailConfigured: boolean;
   gmailConnected: boolean;

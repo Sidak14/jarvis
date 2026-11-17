@@ -29,6 +29,13 @@ export function liveContext(now = new Date()): UiContext {
       plansAllChats: config.PLANS_ALL_CHATS,
       calendarConnected: calendarAuth.isConnected(),
       aiConfigured: Boolean(config.AI_GATEWAY_API_KEY),
+      voice: {
+        enabled: config.VOICE_ENABLED,
+        configured: Boolean(config.VAPI_API_KEY && config.VAPI_WEBHOOK_SECRET && config.OWNER_PHONE),
+        writesLive: config.VOICE_HA_WRITES === "live",
+        pinSet: Boolean(config.VOICE_PIN_HASH),
+        capUsd: config.VOICE_MONTHLY_CAP_USD,
+      },
     },
   };
 }

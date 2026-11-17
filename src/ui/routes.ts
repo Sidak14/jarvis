@@ -7,9 +7,11 @@ import { liveContext } from "./context";
 import { expensesPage } from "./pages/expenses";
 import { jobsPage } from "./pages/jobs";
 import { overviewPage } from "./pages/overview";
+import { voicePage } from "./pages/voice";
 import { buildExpenses, type ExpenseFilter } from "./vm/expenses";
 import { buildJobs, buildRuns } from "./vm/jobs";
 import { buildOverview } from "./vm/overview";
+import { buildVoice } from "./vm/voice";
 import type { ExpenseSource, SheetStatus } from "./vm/types";
 
 // The dashboard pages that are not part of a module: Overview, Expenses, Jobs, and the two static files.
@@ -20,6 +22,13 @@ export const uiRoutes = new Hono();
 uiRoutes.get("/", dashboardAccess, (c) => {
   const ctx = liveContext();
   return c.html(overviewPage(buildOverview(ctx), ctx.now));
+});
+
+// Calls: the voice assistant's spend, calls and tools (summaries only).
+uiRoutes.get("/calls", dashboardAccess, (c) => {
+  const ctx = liveContext();
+  const flags = ctx.flags.voice ?? { enabled: false, configured: false, writesLive: false, pinSet: false, capUsd: 10 };
+  return c.html(voicePage(buildVoice(ctx.db, ctx.now, flags), ctx.now));
 });
 
 const SOURCES = ["tap", "email", "bank", "manual"];
