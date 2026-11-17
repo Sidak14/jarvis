@@ -40,6 +40,7 @@ app.route("/plans", plansRoutes);
 app.route("/calendar", calendarRoutes);
 // The home screen for the kitchen fridge (lights, garage, busy times). It checks who is asking itself (see fridge/access.ts).
 app.route("/dashboard", homeRoutes);
+app.get("/dashboard/", (c) => c.redirect("/dashboard"));
 app.get("/fridge", (c) => c.redirect("/dashboard")); // its old address
 // Overview (/), /expenses, /jobs and the two dashboard asset files (src/ui/routes.ts).
 app.route("/", uiRoutes);
