@@ -223,6 +223,11 @@ describe("applying what the model found", () => {
     apply("G", "Gym", [msg("m1", { me: true })], [result({ plan_status: "confirmed", location: "", date: "2026-11-14", start_time: "14:00" })]);
     assert.equal(wantsEvent(plan(db, 1)), true);
     assert.match(buildPrompt({ now: NOW, chatName: "x", chatType: "group", plans: [], messages: [] }).system, /A place is NOT needed/);
+    const sys = buildPrompt({ now: NOW, chatName: "x", chatType: "group", plans: [], messages: [] }).system;
+    assert.match(sys, /host lists people, ME included, as coming/);
+    assert.match(sys, /end_time \("HH:MM" 24h: set it whenever anyone says when it finishes/);
+    assert.match(sys, /The same night is never two plans/);
+    assert.match(sys, /the one planned later \(the higher P number\) replaces the older one/);
   });
 
   describe("saved places", () => {
