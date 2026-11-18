@@ -52,7 +52,7 @@ export function voicePage(vm: VoiceVM, now: Date): string {
     StatTile({ label: "Last call", value: vm.lastCall ? RelativeTime(vm.lastCall.at, now) : "none yet", sub: vm.lastCall ? `${vm.lastCall.direction === "inbound" ? "you called" : "Jarvis called"} · ${vm.lastCall.result}` : undefined }),
     StatTile({ label: "Tool calls", value: String(vm.toolCalls), sub: vm.toolFailures ? `${vm.toolFailures} failed` : "none failed", state: vm.toolFailures ? "warn" : "ok" }),
     StatTile({ label: "Home Assistant writes", value: f.writesLive ? StatusPill("live") : StatusPill("dry"), sub: f.writesLive ? "voice can change things" : "says what it would do" }),
-    StatTile({ label: "PIN", value: f.pinSet ? StatusPill("ok", "Set") : StatusPill("warn", "Not set"), sub: f.pinSet ? "needed to open the garage" : "npm run voice:set-pin" }),
+    StatTile({ label: "Passphrase", value: f.phraseSet ? StatusPill("ok", "Set") : StatusPill("warn", "Not set"), sub: f.phraseSet ? "needed to open the garage" : "VOICE_OPEN_PHRASE in .env" }),
   ]);
 
   const alerts = vm.openAlerts.length

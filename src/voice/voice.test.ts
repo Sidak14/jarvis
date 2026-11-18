@@ -21,7 +21,7 @@ describe("voice routes", () => {
   let db: Database.Database;
   let alerts: string[];
   const make = (over: Partial<VoiceDeps> = {}) =>
-    createVoiceApp({ db, registry: realRegistry, security: new CallSecurity({ now: () => NOW, pinHash: () => undefined }), capUsd: 10, enabled: true, secret: SECRET, ownerPhone: OWNER, assistantId: () => "asst-1", notify: (t) => void alerts.push(t), now: () => NOW, ...over });
+    createVoiceApp({ db, registry: realRegistry, security: new CallSecurity({ now: () => NOW, phrase: () => undefined }), capUsd: 10, enabled: true, secret: SECRET, ownerPhone: OWNER, assistantId: () => "asst-1", notify: (t) => void alerts.push(t), now: () => NOW, ...over });
   const post = (app: ReturnType<typeof make>, path: string, body: unknown, auth: string | null = `Bearer ${SECRET}`) =>
     app.request(path, { method: "POST", headers: { "content-type": "application/json", ...(auth ? { authorization: auth } : {}) }, body: JSON.stringify(body) });
   const toolMsg = (name: string, o: { call?: object; args?: unknown; id?: string } = {}) => ({

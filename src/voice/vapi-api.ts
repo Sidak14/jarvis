@@ -38,3 +38,20 @@ export function vapiCalls(opts: { apiKey: string; phoneNumberId: string; assista
     },
   };
 }
+
+/**
+ * Adds a note to a call that is going on, without making the assistant speak (so it never interrupts). Vapi gives every live
+ * call a control URL; it is looked up with the call id. The assistant sees the note and mentions it at its next turn.
+ */
+export function vapiNotes(opts: { apiKey: string; fetchFn?: typeof fetch }) {
+  const fetchFn = opts.fetchFn ?? fetch;
+  const headers = { Authorization: `Bearer ${opts.apiKey}`, "Content-Type": "application/json" };
+  return async (callId: string, text: string): Promise<void> => {
+    const res = await fetchFn(`${API}/call/${encodeURIComponent(callId)}`, { headers, signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`Vapi answered ${res.status} for the call`);
+    const url = ((await res.json()) as { monitor?: { controlUrl?: unknown } }).monitor?.controlUrl;
+    if (typeof url !== "string" || !url.startsWith("https://")) throw new Error("the call has no control URL");
+    const sent = await fetchFn(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "add-message", message: { role: "system", content: text }, triggerResponseEnabled: false }), signal: AbortSignal.timeout(8000) });
+    if (!sent.ok) throw new Error(`Vapi answered ${sent.status} to the note`);
+  };
+}

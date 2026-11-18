@@ -17,7 +17,7 @@ export function createVoiceTables(db: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_voice_calls_started ON voice_calls (started_at);
 
-    -- Every tool the model ran. Arguments are NOT stored (they could hold a PIN); only their names.
+    -- Every tool the model ran. Arguments are NOT stored (they could hold the passphrase); only their names.
     CREATE TABLE IF NOT EXISTS voice_tool_calls (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       call_id     TEXT NOT NULL,

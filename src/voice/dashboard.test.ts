@@ -9,7 +9,7 @@ import { finishCall, logToolCall, registerCall } from "./calls";
 import { createVoiceTables } from "./schema";
 
 const NOW = new Date("2026-11-17T04:00:00Z");
-const FLAGS: VoiceFlags = { enabled: true, configured: true, writesLive: false, pinSet: true, capUsd: 10 };
+const FLAGS: VoiceFlags = { enabled: true, configured: true, writesLive: false, phraseSet: true, capUsd: 10 };
 
 describe("the Calls page and the Voice card", () => {
   let db: Database.Database;
@@ -73,7 +73,7 @@ describe("the Calls page and the Voice card", () => {
     const unset = voiceModule(buildVoice(db, NOW, { ...FLAGS, configured: false }), []);
     assert.equal(unset.state, "off");
     assert.match(unset.summary, /Not set up/);
-    assert.match(voiceModule(buildVoice(db, NOW, { ...FLAGS, pinSet: false }), []).issues.join(" "), /No PIN is set/);
+    assert.match(voiceModule(buildVoice(db, NOW, { ...FLAGS, phraseSet: false }), []).issues.join(" "), /No passphrase is set/);
   });
 
   it("shows an open alert on the card", () => {

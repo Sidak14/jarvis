@@ -44,7 +44,7 @@ export const garageStatus = (deps: ToolDeps) =>
   defineTool({
     name: "garage_status",
     description:
-      "Is the garage door open or closed, and for how long. After closing or opening the garage, call this with wait_for set to the state you expect, to hear the real final state (the door takes about 15 seconds).",
+      "Is the garage door open or closed, and for how long. Only call it with wait_for (the state you expect) if you were never told the result of a garage move that you started.",
     schema: z.object({ wait_for: z.enum(["open", "closed"]).optional() }),
     risk: "read",
     timeoutMs: 7500,

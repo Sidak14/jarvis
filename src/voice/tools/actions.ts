@@ -5,16 +5,18 @@ import { findLight } from "../entities";
 import { wait, type ToolDeps } from "./deps";
 import { readGarage } from "./garage";
 
-// The tools that CHANGE something in Home Assistant. They only run after the registry's confirmation (and, for opening the
-// garage, the PIN). Each one checks the real state first and never sends a redundant command, then looks again afterwards
-// and reports what is TRUE, not what was hoped for. With VOICE_HA_WRITES=dry (the default) they only say what they would do.
+// The tools that CHANGE something in Home Assistant. They run as soon as they are asked (no "are you sure?"); the caller is
+// already known to be the owner's phone. Opening the garage also needs the spoken passphrase, checked here in code. Each tool
+// checks the real state first and never sends a redundant command. With VOICE_HA_WRITES=dry they only say what they would do.
+// The garage takes about 15 seconds, so Open and Close only START the door and answer at once; the person can keep talking,
+// and watch.ts sends a quiet note into the call when the door has finished (or failed to move).
 
 const POLL_MS = 1000;
-const POLL_LIMIT_MS = 6500; // a tool must finish in under 8 seconds
+const POLL_LIMIT_MS = 4000; // a tool must finish in under 8 seconds
 const DRY_LOG = (what: string) => console.log(`[voice] DRY RUN: would ${what}`);
 
 // ---- garage
-async function moveGarage(deps: ToolDeps, want: "open" | "closed", now: Date): Promise<ToolResult> {
+async function moveGarage(deps: ToolDeps, want: "open" | "closed", callId: string, now: Date): Promise<ToolResult> {
   const verb = want === "open" ? "open" : "close";
   const r = await readGarage(deps, now);
   if (r.state === "unavailable") return { speech: `I can't read the garage door, so I won't try to ${verb} it.`, data: { sent: false, reason: "unreadable" } };
@@ -30,53 +32,63 @@ async function moveGarage(deps: ToolDeps, want: "open" | "closed", now: Date): P
   await deps.ha!.call("cover", want === "open" ? "open_cover" : "close_cover", deps.entities.garage.cover);
   const started = Date.now();
   let after = r;
-  // The status says "opening"/"closing" for 15 seconds after a press, then follows the tilt sensor. Look for a few seconds.
-  while (after.state !== want && Date.now() - started < POLL_LIMIT_MS) {
+  // Home Assistant says "opening"/"closing" for 15 seconds after a press. Wait only until it has started moving.
+  while (after.state === r.state && Date.now() - started < POLL_LIMIT_MS) {
     await wait(deps, POLL_MS);
     after = await readGarage(deps, new Date(now.getTime() + (Date.now() - started)));
-    if (after.state === "opening" || after.state === "closing") break; // it has started moving: that is the answer for now
+  }
+  if (after.state === "opening" || after.state === "closing") {
+    deps.afterMove?.(callId, want);
+    return {
+      speech: `The garage door is ${after.state === "closing" ? "closing" : "opening"} now.`,
+      data: { sent: true, state: after.state, final: false, note: "It takes about fifteen seconds. Carry on with the conversation: you will be told when it has finished or failed. Do not wait for it." },
+    };
   }
   if (after.state === want) return { speech: `The garage door is ${want}.`, data: { sent: true, state: after.state, final: true } };
-  if (after.state === "opening" || after.state === "closing") {
-    return { speech: `I sent the command and the garage door is ${after.state}. It takes about fifteen seconds.`, data: { sent: true, state: after.state, final: false, next: `call garage_status with wait_for ${want}` } };
-  }
-  return { speech: `I sent the command but the garage door still shows ${after.state}.`, data: { sent: true, state: after.state, final: true, worked: false } };
+  return { speech: `That didn't go through: the garage door still shows ${after.state}.`, data: { sent: true, state: after.state, final: true, worked: false } };
 }
 
 export const closeGarage = (deps: ToolDeps) =>
   defineTool({
     name: "close_garage",
-    description: "Close the garage door. The first call only asks for confirmation; call it again with the confirm_token after the person says yes.",
+    description: "Close the garage door. Do it as soon as the person asks, without asking whether they are sure. It only starts the door and answers at once; carry on talking.",
     schema: z.object({}),
     risk: "write",
     timeoutMs: 7800,
-    describe: () => "Close the garage door.",
-    handler: (_args, ctx) => moveGarage(deps, "closed", ctx.now),
+    handler: (_args, ctx) => moveGarage(deps, "closed", ctx.callId, ctx.now),
   });
 
 export const openGarage = (deps: ToolDeps) =>
   defineTool({
     name: "open_garage",
-    description: "Open the garage door. Needs the person's PIN (verify_pin) and a confirmation: the first call only asks, call it again with the confirm_token after the person says yes.",
-    schema: z.object({}),
-    risk: "danger",
+    description:
+      "Open the garage door. Pass in `words` exactly what the person said when they asked, word for word. The tool decides whether opening is allowed. It only starts the door and answers at once; carry on talking. If it says it can't, say so and nothing more.",
+    schema: z.object({ words: z.string().max(300).optional() }),
+    risk: "write",
     timeoutMs: 7800,
-    describe: () => "Open the garage door.",
-    handler: (_args, ctx) => moveGarage(deps, "open", ctx.now),
+    handler: (args, ctx) => {
+      const refuse = (reason: string) => ({ speech: "I can't open the garage door.", data: { sent: false, reason } });
+      switch (ctx.security.attempt(ctx.callId, args.words ?? "")) {
+        case "ok":
+          return moveGarage(deps, "open", ctx.callId, ctx.now);
+        case "locked":
+          return refuse("not_allowed");
+        case "no_phrase":
+          return refuse("not_set_up");
+        default:
+          return refuse("not_allowed");
+      }
+    },
   });
 
 // ---- lights
 export const lightsSet = (deps: ToolDeps) =>
   defineTool({
     name: "lights_set",
-    description: "Turn one of the house lights on or off by its name (for example chandelier, driveway lights, courtyard). The first call only asks for confirmation; call it again with the confirm_token after the person says yes.",
+    description: "Turn one of the house lights on or off by its name (for example chandelier, driveway lights, courtyard). Do it as soon as the person asks, without asking whether they are sure.",
     schema: z.object({ name: z.string().min(1).max(60), state: z.enum(["on", "off"]) }),
     risk: "write",
     timeoutMs: 7800,
-    describe: (a) => {
-      const light = findLight(deps.entities, a.name);
-      return light ? `Turn the ${light.name} ${a.state}.` : `Turn ${clean(a.name, 40)} ${a.state}.`;
-    },
     handler: async (args) => {
       const light = findLight(deps.entities, args.name);
       if (!light) {

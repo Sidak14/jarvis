@@ -27,7 +27,7 @@ uiRoutes.get("/", dashboardAccess, (c) => {
 // Calls: the voice assistant's spend, calls and tools (summaries only).
 uiRoutes.get("/calls", dashboardAccess, (c) => {
   const ctx = liveContext();
-  const flags = ctx.flags.voice ?? { enabled: false, configured: false, writesLive: false, pinSet: false, capUsd: 10 };
+  const flags = ctx.flags.voice ?? { enabled: false, configured: false, writesLive: false, phraseSet: false, capUsd: 10 };
   return c.html(voicePage(buildVoice(ctx.db, ctx.now, flags), ctx.now));
 });
 

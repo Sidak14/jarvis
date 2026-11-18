@@ -132,7 +132,7 @@ export interface VoiceFlags {
   /** Vapi key, webhook secret and my number are all set. */
   configured: boolean;
   writesLive: boolean;
-  pinSet: boolean;
+  phraseSet: boolean;
   capUsd: number;
 }
 export interface UiFlags {

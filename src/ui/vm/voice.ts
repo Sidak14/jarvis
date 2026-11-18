@@ -121,7 +121,7 @@ export function voiceModule(vm: VoiceVM, jobs: JobVM[]): ModuleStatus {
       if (state === "ok") state = "warn";
       issues.push(`${vm.toolFailures} voice tool call${vm.toolFailures === 1 ? "" : "s"} failed this month`);
     }
-    if (!f.pinSet) issues.push("No PIN is set, so voice cannot open the garage (npm run voice:set-pin)");
+    if (!f.phraseSet) issues.push("No passphrase is set, so voice cannot open the garage (VOICE_OPEN_PHRASE in .env)");
     for (const a of vm.openAlerts) issues.push(`Alert open: ${a.kind.replace("_", " ")} since ${a.since.toISOString().slice(11, 16)}Z, ${a.attemptsToday} call${a.attemptsToday === 1 ? "" : "s"} today`);
   }
   const job = jobs.find((j) => j.name === "voice-alerts");
@@ -129,7 +129,7 @@ export function voiceModule(vm: VoiceVM, jobs: JobVM[]): ModuleStatus {
     { label: "Spend this month", value: `$${vm.spentUsd.toFixed(2)} of $${vm.capUsd.toFixed(0)}` },
     { label: "Calls this month", value: `${vm.callsThisMonth} (${vm.inboundThisMonth} in, ${vm.outboundThisMonth} out)` },
     { label: "Home Assistant writes", value: f.writesLive ? "live" : "dry run (says what it would do)" },
-    { label: "PIN", value: f.pinSet ? "set" : "not set" },
+    { label: "Passphrase", value: f.phraseSet ? "set" : "not set" },
     { label: "Alert watchdog", value: job ? `${job.scheduleHuman}${job.overdue ? ", overdue" : ""}` : "not scheduled" },
   ];
   return {

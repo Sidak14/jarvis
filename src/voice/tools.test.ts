@@ -40,7 +40,7 @@ function fakeHa(initial: Record<string, string> = {}) {
   return { ha, set, calls };
 }
 
-const ctx = (id = "call-1") => ({ callId: id, now: NOW, security: new CallSecurity({ now: () => NOW, pinHash: () => undefined }) });
+const ctx = (id = "call-1") => ({ callId: id, now: NOW, security: new CallSecurity({ now: () => NOW, phrase: () => undefined }) });
 
 describe("speaking", () => {
   it("says numbers and money in words", () => {
@@ -242,7 +242,7 @@ describe("the read tools", () => {
 
   it("every read tool is risk 'read' and has a short description", () => {
     const reg = buildRegistry({ db, entities, ha: ha.ha, calendar: () => null, writes: () => "dry" });
-    for (const name of ["ping", "verify_pin", "garage_status", "home_status", "calendar_today", "expenses_summary", "plans_upcoming", "spotify_recent"]) {
+    for (const name of ["ping", "garage_status", "home_status", "calendar_today", "expenses_summary", "plans_upcoming", "spotify_recent"]) {
       const t = reg.get(name)!;
       assert.equal(t.risk, "read", name);
       assert.ok(t.description.length < 300, name);

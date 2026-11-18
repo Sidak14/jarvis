@@ -105,8 +105,8 @@ const schema = z.object({
   VAPI_CREDENTIAL_ID: z.string().min(5).optional(),
   /** My phone number, E.164 (+614...). The only number Jarvis will talk to (and call). */
   OWNER_PHONE: z.string().regex(/^\+\d{8,15}$/, "must look like +61405123456").optional(),
-  /** scrypt hash of the spoken PIN, made by `npm run voice:set-pin`. */
-  VOICE_PIN_HASH: z.string().min(20).optional(),
+  /** The words that unlock opening the garage by voice ("open sesame"). Plain text; without it voice can never open the door. */
+  VOICE_OPEN_PHRASE: z.string().min(3).optional(),
   VOICE_MONTHLY_CAP_USD: z.coerce.number().positive().default(10),
   /** dry = the voice tools say what they would do to Home Assistant but change nothing. */
   VOICE_HA_WRITES: z.enum(["dry", "live"]).default("dry"),
@@ -163,7 +163,7 @@ export function redactedConfig(): Record<string, string | number | boolean | und
     VAPI_WEBHOOK_SECRET: config.VAPI_WEBHOOK_SECRET ? "***" : undefined,
     VAPI_CREDENTIAL_ID: config.VAPI_CREDENTIAL_ID ? "***" : undefined,
     OWNER_PHONE: config.OWNER_PHONE ? "***" : undefined,
-    VOICE_PIN_HASH: config.VOICE_PIN_HASH ? "***" : undefined,
+    VOICE_OPEN_PHRASE: config.VOICE_OPEN_PHRASE ? "***" : undefined,
     DASHBOARD_EMAILS: config.DASHBOARD_EMAILS.length ? `${config.DASHBOARD_EMAILS.length} email(s)` : "none",
   };
 }

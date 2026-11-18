@@ -13,6 +13,8 @@ export interface ToolDeps {
   calendar: () => CalendarClient | null;
   /** dry: the Home Assistant tools say what they would do and change nothing. live: they do it. */
   writes: () => "dry" | "live";
+  /** Called once a garage door has started moving: tells the call when it has finished (see watch.ts). */
+  afterMove?: (callId: string, want: "open" | "closed") => void;
   /** Waits between Home Assistant checks (replaced in tests). */
   sleep?: (ms: number) => Promise<void>;
 }

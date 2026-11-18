@@ -128,8 +128,8 @@ export function savedAssistantId(): string | null {
 
 export const security = new CallSecurity({
   now: () => new Date(),
-  pinHash: () => config.VOICE_PIN_HASH,
-  onLocked: () => notify("🔒 Three wrong PINs on a Jarvis phone call. Dangerous tools are locked for that call."),
+  phrase: () => config.VOICE_OPEN_PHRASE,
+  onLocked: () => notify("🔒 Three failed attempts to open the garage on a Jarvis phone call. Opening is locked for that call."),
 });
 
 let onCallEnded: ((call: CallRow) => void) | undefined;

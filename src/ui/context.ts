@@ -33,7 +33,7 @@ export function liveContext(now = new Date()): UiContext {
         enabled: config.VOICE_ENABLED,
         configured: Boolean(config.VAPI_API_KEY && config.VAPI_WEBHOOK_SECRET && config.OWNER_PHONE),
         writesLive: config.VOICE_HA_WRITES === "live",
-        pinSet: Boolean(config.VOICE_PIN_HASH),
+        phraseSet: Boolean(config.VOICE_OPEN_PHRASE),
         capUsd: config.VOICE_MONTHLY_CAP_USD,
       },
     },

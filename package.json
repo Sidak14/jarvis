@@ -8,8 +8,7 @@
     "test": "tsc && node --test 'dist/**/*.test.js'",
     "start": "node dist/server.js",
     "chats": "node dist/plans/chats-cli.js",
-    "voice:push": "tsc && node dist/voice/push.js",
-    "voice:set-pin": "tsc && node dist/voice/set-pin.js"
+    "voice:push": "tsc && node dist/voice/push.js"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
