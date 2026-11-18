@@ -3,7 +3,7 @@ import path from "node:path";
 import { Hono, type Context } from "hono";
 import { config, ROOT } from "../config";
 import { db } from "../db";
-import { currentLocation } from "../location/store";
+import { currentLocation, PEOPLE } from "../location/store";
 import { calendarAuth } from "../plans/index";
 import { createCalendarClient } from "../plans/calendar";
 import { checkAccess, dashboardLogin, type AccessDeps } from "./access";
@@ -209,10 +209,11 @@ export const homeRoutes = createHomeApp({
     log: (m) => console.log(`[home] ${m}`),
   },
   ha: config.HA_TOKEN ? haClient(config.HA_URL, config.HA_TOKEN) : null,
-  people: () => {
-    const now = currentLocation(db);
-    return [{ name: "Gurveer", where: now ? (now.place === "Other" ? "Out" : now.place) : null }];
-  },
+  people: () =>
+    PEOPLE.map(({ key, name }) => {
+      const now = currentLocation(db, key);
+      return { name, where: now ? (now.place === "Other" ? "Out" : now.place) : null };
+    }),
   async week() {
     if (weekCache && Date.now() - weekCache.at < WEEK_CACHE_MS) return weekCache.days;
     if (!calendarAuth.isConnected()) throw new Error("Google Calendar isn't connected");

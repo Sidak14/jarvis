@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { config } from "./config";
 import { db } from "./db";
 import { isHomeNetworkRequest } from "./fridge/access";
@@ -62,11 +62,13 @@ app.route("/", uiRoutes);
 
 const MAX_BODY_BYTES = 64 * 1024;
 
-app.post("/webhook/:name", async (c) => {
+// /webhook/<name>, or /webhook/<name>/<who> (named "<name>/<who>", e.g. location/mom).
+const webhookHandler = async (c: Context) => {
   if (!isAuthorized(c.req.header("Authorization"))) {
     return c.json({ error: "unauthorized" }, 401);
   }
-  const name = c.req.param("name");
+  const who = c.req.param("who");
+  const name = who ? `${c.req.param("name")}/${who}` : (c.req.param("name") as string);
 
   // A webhook that wants the request body (e.g. expenses) takes precedence over a job of the same name.
   const hook = getWebhook(name);
@@ -91,4 +93,6 @@ app.post("/webhook/:name", async (c) => {
 
   if (!triggerJob(name)) return c.json({ error: "unknown job" }, 404);
   return c.json({ ok: true, triggered: name }, 202);
-});
+};
+app.post("/webhook/:name", webhookHandler);
+app.post("/webhook/:name/:who", webhookHandler);

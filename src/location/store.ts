@@ -3,6 +3,13 @@ import type Database from "better-sqlite3";
 // Where I am, from the phone's "enter" / "leave" automations (Shortcuts). The places the phone knows
 // are home, work and gym; anywhere else is "Other".
 
+/** Who can report a location: the webhook path (/webhook/location/me) and the name shown on the home screen. */
+export const PEOPLE = [
+  { key: "me", name: "Gurveer" },
+  { key: "mom", name: "Mom" },
+] as const;
+export type PersonKey = (typeof PEOPLE)[number]["key"];
+
 export const PLACES = ["home", "work", "gym"] as const;
 export const EVENTS = ["enter", "leave"] as const;
 export type KnownPlace = (typeof PLACES)[number];
@@ -22,21 +29,21 @@ export function parseLocation(body: unknown): { place: KnownPlace; event: Locati
   return { place: place as KnownPlace, event: event as LocationEvent };
 }
 
-export function currentLocation(db: Database.Database): { place: Where; since: string } | null {
-  return (db.prepare(`SELECT place, since FROM location_now WHERE id = 1`).get() as { place: Where; since: string } | undefined) ?? null;
+export function currentLocation(db: Database.Database, person: PersonKey): { place: Where; since: string } | null {
+  return (db.prepare(`SELECT place, since FROM person_location WHERE person = ?`).get(person) as { place: Where; since: string } | undefined) ?? null;
 }
 
 /**
  * Enter X: I am at X. Leave X: I am "Other", but only if I was at X (a late "leave work" that arrives after
  * "enter gym" must not undo the gym). Every report is logged.
  */
-export function applyLocation(db: Database.Database, report: { place: KnownPlace; event: LocationEvent }, now: Date): Where {
+export function applyLocation(db: Database.Database, person: PersonKey, report: { place: KnownPlace; event: LocationEvent }, now: Date): Where {
   const at = now.toISOString();
-  db.prepare(`INSERT INTO location_events (place, event, received_at) VALUES (?, ?, ?)`).run(report.place, report.event, at);
-  const current = currentLocation(db);
+  db.prepare(`INSERT INTO location_events (person, place, event, received_at) VALUES (?, ?, ?, ?)`).run(person, report.place, report.event, at);
+  const current = currentLocation(db, person);
   const next: Where = report.event === "enter" ? label(report.place) : current?.place === label(report.place) ? "Other" : (current?.place ?? "Other");
   if (current?.place !== next || !current) {
-    db.prepare(`INSERT INTO location_now (id, place, since) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET place = excluded.place, since = excluded.since`).run(next, at);
+    db.prepare(`INSERT INTO person_location (person, place, since) VALUES (?, ?, ?) ON CONFLICT(person) DO UPDATE SET place = excluded.place, since = excluded.since`).run(person, next, at);
   }
   return next;
 }

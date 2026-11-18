@@ -110,9 +110,9 @@ writes a row to a Google Sheet. The goal is never losing an expense, and making 
 
 ## Location (phone -> where I am)
 
-`POST /webhook/location` (same `Authorization: Bearer` secret as the other webhooks) with
+`POST /webhook/location/me` (and `/webhook/location/mom` for Mom; same `Authorization: Bearer` secret as the other webhooks) with
 `{"kind": "location", "place": "home|work|gym", "event": "enter|leave"}`. Made for three iPhone Shortcuts
-automations (Arrive / Leave) per place. The current place is stored in `location_now`: entering a place
+automations (Arrive / Leave) per place. The current place of each person is stored in `person_location`: entering a place
 sets it to Home, Work or Gym, and leaving it sets "Other" (only if you were still there, so a late
 "leave work" after "enter gym" changes nothing). Every report is also kept in `location_events`.
 Anything that is not that dictionary gets a 400. Code: `src/location/`.
@@ -326,7 +326,7 @@ It is linked from the main page's nav ("Dashboard"). `/fridge` redirects to it.
   `src/fridge/lights.ts` (that list is the whole permission, and `NEVER_SWITCH` is refused even if added by mistake).
 - **Garage:** the status is `sensor.garage_door_status` and the button calls `cover.open_cover` / `cover.close_cover` on
   `cover.garage_door` (Home Assistant only lets Open through when closed and Close when open). The button asks "Tap again" first.
-- **Where people are:** `GET /dashboard/api/state` (`people`) reads `location_now` (see Location). Only you are tracked so far.
+- **Where people are:** `GET /dashboard/api/state` (`people`) reads `person_location` (see Location): you and Mom. When either arrives home the garage opens if it is closed.
 - **Busy times:** `GET /dashboard/api/week`, cached 5 minutes; needs the calendar login (`/calendar/login`).
 - **Reaching it:** `http://127.0.0.1:8080/dashboard` on this Mac, or `https://<PUBLIC_HOST>/dashboard`. The server only listens on
   this Mac (`HOST` in `config.ts`).
