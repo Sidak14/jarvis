@@ -107,6 +107,8 @@ export interface PlanVM {
   /** Calendar chip: day of month and short month, or null when there is no date yet. */
   dayChip: { day: string; month: string } | null;
   where: string | null;
+  /** A Google Maps link for the place, when it has an address (or is a public venue). */
+  mapUrl: string | null;
   chat: string;
   myStance: PlanStance;
   planStatus: "proposed" | "confirmed" | "cancelled";

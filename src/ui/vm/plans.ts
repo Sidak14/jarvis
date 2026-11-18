@@ -3,7 +3,7 @@ import { config } from "../../config";
 import { whenLabel, wantsEvent } from "../../plans/actions";
 import { loadAllowlist } from "../../plans/allowlist";
 import { ALLOWED_BRIDGES } from "../../plans/settings";
-import { listPlaces } from "../../plans/places";
+import { listPlaces, mapsUrl } from "../../plans/places";
 import { allPlans, getState, planCode, type Plan } from "../../plans/store";
 import { dayKey } from "../../telegram/time";
 import { buildAiUsage, type AiUsageVM } from "./ai";
@@ -15,7 +15,7 @@ const BRIDGE_NAMES: Record<string, string> = { instagramgo: "Instagram", whatsap
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
-export function toPlanVM(p: Plan, today: string): PlanVM {
+export function toPlanVM(p: Plan, today: string, mapUrl: (location: string | null) => string | null = () => null): PlanVM {
   const unreplied = p.replied_at === null && p.my_stance !== "committed" && p.my_stance !== "declined";
   const why = [
     unreplied ? "you haven't replied" : "",
@@ -38,6 +38,7 @@ export function toPlanVM(p: Plan, today: string): PlanVM {
     when: whenLabel(p),
     dayChip: dm ? { day: String(+dm[3]), month: MONTHS[+dm[2] - 1] ?? "" } : null,
     where: p.location,
+    mapUrl: mapUrl(p.location),
     chat: [p.source_chat_name, ...p.linked_chats.map((l) => l.name)].join(", "),
     myStance: p.my_stance,
     planStatus: p.plan_status,
@@ -106,7 +107,7 @@ export interface PlansVM {
   proposed: PlanVM[];
   past: PlanVM[];
   would: WouldVM[];
-  places: { name: string; address: string | null }[];
+  places: { name: string; address: string | null; mapUrl: string | null }[];
   showWould: boolean;
 }
 
@@ -121,7 +122,7 @@ export function buildPlans(ctx: UiContext): PlansVM {
   const upcoming = live.filter((p) => p.my_stance === "committed").sort((a, b) => (a.date ?? "9").localeCompare(b.date ?? "9"));
   const proposed = live.filter((p) => p.my_stance !== "committed");
   const past = plans.filter((p) => !live.includes(p));
-  const vm = (list: Plan[]) => list.map((p) => toPlanVM(p, today));
+  const vm = (list: Plan[]) => list.map((p) => toPlanVM(p, today, (l) => mapsUrl(ctx.db, l)));
   const would = db.prepare(`SELECT plan_id, kind, detail, created_at FROM plan_actions WHERE dry_run = 1 ORDER BY id DESC LIMIT 40`).all() as { plan_id: number; kind: string; detail: string | null; created_at: string }[];
   return {
     status: buildPlansStatus(ctx),
@@ -131,7 +132,7 @@ export function buildPlans(ctx: UiContext): PlansVM {
     proposed: vm(proposed),
     past: vm(past),
     would: would.map((w) => ({ at: new Date(w.created_at), plan: planCode(w.plan_id), action: w.kind.replace("would_", "would "), detail: w.detail ?? "" })),
-    places: listPlaces(db).map((p) => ({ name: p.name, address: p.address })),
+    places: listPlaces(db).map((p) => ({ name: p.name, address: p.address, mapUrl: mapsUrl(db, p.name) })),
     showWould: ctx.flags.plansDryRun,
   };
 }

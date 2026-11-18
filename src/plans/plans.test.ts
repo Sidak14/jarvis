@@ -7,7 +7,7 @@ import Database from "better-sqlite3";
 import { LlmError } from "../ai/llm";
 import type { Outbox } from "../telegram/outbox";
 import { createPhotoDescriber, type DescribePhoto } from "./photos";
-import { attachPlaceMessage, ensurePlace, findPlace, listPlaces, placeByQuestionMessage, saveAddress } from "./places";
+import { attachPlaceMessage, ensurePlace, findPlace, listPlaces, mapsUrl, placeByQuestionMessage, resolveLocation, saveAddress, withRegion } from "./places";
 import { runActions, createEventNow, eventTimes, wantsEvent, type ActionDeps } from "./actions";
 import { applyResults, checkDate, checkTime, type BatchMessage } from "./apply";
 import http from "node:http";
@@ -609,7 +609,7 @@ describe("calendar", () => {
     assert.equal(e.planId, "P-0001");
     assert.equal(e.location, "Mr Wong");
     assert.equal(Date.parse(e.endIso) - Date.parse(e.startIso), 2 * 3_600_000);
-    assert.match(e.description, /^Created by Jarvis from Footy boys\nBirthday dinner\nMeeting point: Outside\nCost: \$60\nBring: ID\nhttps:\/\/x\.com\/y\n- Parking at the Star$/);
+    assert.match(e.description, /^Created by Jarvis from Footy boys\nBirthday dinner\nMap: https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=Mr%20Wong\nMeeting point: Outside\nCost: \$60\nBring: ID\nhttps:\/\/x\.com\/y\n- Parking at the Star$/);
     assert.match(sent[0].text, /Added Dinner at Mr Wong, Sat 14 Nov, 7:00pm at Mr Wong to your calendar \(from Footy boys\)\.\nWrong\? Reply \/undo P-0001/);
     assert.equal(plan(db, id).event_link, "https://cal/ev1");
   });
@@ -1156,5 +1156,26 @@ describe("Instagram only, read only", () => {
     } finally {
       server.close();
     }
+  });
+});
+
+describe("maps links for addresses", () => {
+  it("adds the state and country when an address has none, and leaves a full one alone", () => {
+    assert.equal(withRegion("7 John Campbell parade, bungarribee"), "7 John Campbell parade, bungarribee, NSW, Australia");
+    assert.equal(withRegion("5 Real Rd, Sydney NSW 2000"), "5 Real Rd, Sydney NSW 2000");
+    assert.equal(withRegion("1 Smith St, Melbourne VIC"), "1 Smith St, Melbourne VIC");
+  });
+
+  it("a saved place links to its address on Google Maps; one with no address yet has no link; a venue links by name", () => {
+    const db = new Database(":memory:");
+    createPlansTables(db);
+    ensurePlace(db, "Rijul's house", new Date());
+    ensurePlace(db, "Sajid's house", new Date());
+    assert.equal(mapsUrl(db, "Rijul's house"), null, "no address yet");
+    saveAddress(db, findPlace(db, "Rijul's house")!.id, "7 John Campbell parade, bungarribee");
+    assert.equal(resolveLocation(db, "Rijul's house"), "7 John Campbell parade, bungarribee, NSW, Australia");
+    assert.equal(mapsUrl(db, "Rijul's house"), "https://www.google.com/maps/search/?api=1&query=7%20John%20Campbell%20parade%2C%20bungarribee%2C%20NSW%2C%20Australia");
+    assert.equal(mapsUrl(db, "Mr Wong, Bridge Ln, Sydney"), "https://www.google.com/maps/search/?api=1&query=Mr%20Wong%2C%20Bridge%20Ln%2C%20Sydney");
+    assert.equal(mapsUrl(db, null), null);
   });
 });

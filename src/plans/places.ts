@@ -34,10 +34,23 @@ export function ensurePlace(db: Database.Database, name: string, now: Date): Pla
   return findPlace(db, clean)!;
 }
 
-/** What goes in the calendar event's location: a saved place's address, else the text as it is. */
+/** "7 John Campbell parade, bungarribee" has no state or country, so Google may not find it: add them when they are missing. */
+export function withRegion(address: string): string {
+  return /\b(australia|nsw|new south wales|vic|qld|act|tas|wa|sa|nt)\b/i.test(address) ? address : `${address}, NSW, Australia`;
+}
+
+/** What goes in the calendar event's location: a saved place's address (with its state), else the text as it is. */
 export function resolveLocation(db: Database.Database, location: string | null): string | null {
   const place = findPlace(db, location);
-  return place ? (place.address ?? place.name) : location;
+  return place ? (place.address ? withRegion(place.address) : place.name) : location;
+}
+
+/** A Google Maps link for a plan's location. None for a saved place with no address yet (the name alone would find the wrong place). */
+export function mapsUrl(db: Database.Database, location: string | null): string | null {
+  if (!location) return null;
+  const place = findPlace(db, location);
+  if (place && !place.address) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(resolveLocation(db, location)!)}`;
 }
 
 /** Places that still need an address and have not been asked about yet. */

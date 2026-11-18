@@ -3,7 +3,7 @@ import { oneLine } from "../telegram/format";
 import type { Outbox } from "../telegram/outbox";
 import { dayKey, dayLabel, formatClock, NIGHT_ENDS_HOUR, startOfDay, zonedTime, zoned } from "../telegram/time";
 import type { BusyEvent, CalendarClient } from "./calendar";
-import { markAsked, placesToAsk, questionText, resolveLocation } from "./places";
+import { mapsUrl, markAsked, placesToAsk, questionText, resolveLocation } from "./places";
 import {
   CALENDAR_CREATES_PER_DAY,
   CALENDAR_MIN_CONFIDENCE,
@@ -83,12 +83,14 @@ export function wantsEvent(p: Plan): boolean {
 }
 
 /** The event's version also changes when the saved address of its place does. */
-const eventVersion = (db: Database.Database, p: Plan) => planEventVersion({ ...p, location: resolveLocation(db, p.location) });
+const eventVersion = (db: Database.Database, p: Plan) => planEventVersion({ ...p, location: resolveLocation(db, p.location), notes: [...p.notes, ...(mapsUrl(db, p.location) ? [mapsUrl(db, p.location)!] : [])] });
 
 function eventInput(db: Database.Database, p: Plan) {
   const t = eventTimes(p)!;
   const lines = [`Created by Jarvis from ${p.source_chat_name}`];
   if (p.what) lines.push(p.what);
+  const map = mapsUrl(db, p.location);
+  if (map) lines.push(`Map: ${map}`);
   if (p.meeting_point) lines.push(`Meeting point: ${p.meeting_point}`);
   if (p.cost) lines.push(`Cost: ${p.cost}`);
   if (p.bring) lines.push(`Bring: ${p.bring}`);

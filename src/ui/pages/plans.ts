@@ -17,7 +17,7 @@ function planCard(p: PlanVM, now: Date, note?: Html): Html {
 ${chip}
 <div class="plan-main">
   <p class="plan-title"><span class="muted mono">${p.id}</span> ${p.title}</p>
-  <p class="plan-meta">${p.when}${p.where ? h` · ${p.where}` : ""}</p>
+  <p class="plan-meta">${p.when}${p.where ? (p.mapUrl ? h` · <a href="${p.mapUrl}" target="_blank" rel="noreferrer noopener">${p.where} (map)</a>` : h` · ${p.where}`) : ""}</p>
   <p class="plan-meta">Chat: ${p.chat}</p>
   <div class="plan-pills">${stancePill(p.myStance)}${statusPill(p.planStatus)}${p.clash ? StatusPill("error", "Calendar clash") : ""}${p.onCalendar && !p.clash ? StatusPill("ok", "Calendar-ready") : ""}</div>
   ${p.why.length ? h`<p class="plan-why">${p.why.join(" · ")}</p>` : ""}
@@ -62,7 +62,7 @@ ${Section(
   DataTable({
     caption: "Places Jarvis knows (the AI only sees the names). Reply to its question on Telegram to set an address.",
     columns: [{ label: "Place" }, { label: "Address" }],
-    rows: vm.places.map((p) => ({ cells: [p.name, p.address ?? h`<span class="muted">not given yet</span>`] })),
+    rows: vm.places.map((p) => ({ cells: [p.name, p.address ? h`<a href="${p.mapUrl}" target="_blank" rel="noreferrer noopener">${p.address}</a>` : h`<span class="muted">not given yet</span>`] })),
     empty: EmptyState("No saved places yet", "Jarvis asks on Telegram when a plan is at somewhere new, like a friend's house."),
     sortable: false,
   }),
