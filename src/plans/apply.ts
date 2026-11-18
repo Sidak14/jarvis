@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { settings } from "../settings";
 import { dayKey, eveningDay, zoned } from "../telegram/time";
 import type { DetectionResult } from "./detect";
 import { ensurePlace, findPlace } from "./places";
@@ -10,7 +11,6 @@ import {
   MAX_DATE_FUTURE_DAYS,
   MAX_DATE_PAST_DAYS,
   MAX_RESULTS_PER_BATCH,
-  MIN_CREATE_CONFIDENCE,
 } from "./settings";
 import {
   addHistory,
@@ -227,7 +227,7 @@ function applyOne(db: Database.Database, ctx: BatchContext, r0: DetectionResult,
     if (same) plan = same;
     else {
       const early = evidence.map((id) => ctx.messages.get(id)!.ts).sort()[0];
-      if (!fields.title || fields.confidence < MIN_CREATE_CONFIDENCE) return void report.rejected.push("create: no title or low confidence");
+      if (!fields.title || fields.confidence < settings.num("plans.min_create_confidence")) return void report.rejected.push("create: no title or low confidence");
       if (evidence.length === 0) return void report.rejected.push("create: no evidence");
       if (r.date && !fields.date) return void report.rejected.push("create: date out of range");
       if (!mayCreate()) return void report.rejected.push("create: too many in one batch");

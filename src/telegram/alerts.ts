@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { MONTHLY_SPEND_CAP_USD } from "../ai/settings";
+import { settings } from "../settings";
 import { aiCapReason, aiSpendThisMonth } from "../ai/usage";
 import { oneLine } from "./format";
 import type { Outbox } from "./outbox";
@@ -71,8 +71,8 @@ export function checkAlerts(deps: { db: Database.Database; notify: Outbox["notif
   // 4. AI spend: 80% of the month's cap, and the caps themselves.
   const spend = aiSpendThisMonth(db, now);
   const month = now.toISOString().slice(0, 7);
-  if (spend >= MONTHLY_SPEND_CAP_USD * AI_WARN_FRACTION) {
-    alert(`ai-80-${month}`, COOLDOWN.ai80, `AI spend is at $${spend.toFixed(2)} of the $${MONTHLY_SPEND_CAP_USD} monthly cap (${Math.round((spend / MONTHLY_SPEND_CAP_USD) * 100)}%).`);
+  if (spend >= settings.num("ai.monthly_cap_usd") * AI_WARN_FRACTION) {
+    alert(`ai-80-${month}`, COOLDOWN.ai80, `AI spend is at $${spend.toFixed(2)} of the $${settings.num("ai.monthly_cap_usd")} monthly cap (${Math.round((spend / settings.num("ai.monthly_cap_usd")) * 100)}%).`);
   }
   const capReason = aiCapReason(db, now);
   if (capReason) {

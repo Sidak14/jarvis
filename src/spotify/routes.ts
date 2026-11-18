@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { appendToPage, flashFrom, SettingsPanel } from "../ui/settings";
 import { Hono } from "hono";
 import { dashboardAccess } from "../access";
 import { esc, layout } from "../html";
@@ -73,5 +74,5 @@ spotifyRoutes.post("/run", dashboardAccess, async (c) => {
 spotifyRoutes.get("/", dashboardAccess, (c) => {
   const ctx = liveContext();
   const vm = buildSpotify(ctx, Number(c.req.query("run")));
-  return c.html(spotifyPage(vm, ctx.now, { busy: c.req.query("notice") === "busy" }));
+  return c.html(appendToPage(spotifyPage(vm, ctx.now, { busy: c.req.query("notice") === "busy" }), SettingsPanel({ group: "spotify", back: "/spotify", flash: flashFrom(c.req.query()) })));
 });

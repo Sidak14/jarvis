@@ -107,8 +107,6 @@ const schema = z.object({
   OWNER_PHONE: z.string().regex(/^\+\d{8,15}$/, "must look like +61405123456").optional(),
   /** The words that unlock opening the garage by voice ("open sesame"). Plain text; without it voice can never open the door. */
   VOICE_OPEN_PHRASE: z.string().min(3).optional(),
-  /** How long the garage must be open before Jarvis phones. 600 (10 minutes) normally; lower it only to test. */
-  VOICE_GARAGE_OPEN_SECONDS: z.coerce.number().int().min(10).default(600),
   VOICE_MONTHLY_CAP_USD: z.coerce.number().positive().default(10),
   /** dry = the voice tools say what they would do to Home Assistant but change nothing. */
   VOICE_HA_WRITES: z.enum(["dry", "live"]).default("dry"),

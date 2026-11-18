@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
+import { settings } from "../settings";
 import type { SpotifyClient } from "./client";
-import { LIKE_BATCH, PLAY_THRESHOLD, WINDOW_DAYS } from "./settings";
 
 export interface SpotifyLikesDeps {
   db: Database.Database;
@@ -30,7 +30,7 @@ function chunk<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-/** One pass: store new plays, then like anything played more than PLAY_THRESHOLD times. */
+/** One pass: store new plays, then like anything played more than the threshold. */
 export async function runSpotifyLikes(deps: SpotifyLikesDeps): Promise<SpotifyLikesResult> {
   const { db, client, dryRun, log } = deps;
   const now = deps.now ?? new Date();
@@ -51,7 +51,7 @@ export async function runSpotifyLikes(deps: SpotifyLikesDeps): Promise<SpotifyLi
   log(`Fetched ${plays.length} recent plays, ${result.newPlays} new`);
 
   // 2. Count plays per track over the rolling window; keep tracks over the threshold.
-  const windowStart = new Date(now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const windowStart = new Date(now.getTime() - settings.num("spotify.window_days") * 24 * 60 * 60 * 1000).toISOString();
   const candidates = db
     .prepare(
       `SELECT track_id, MAX(track_name) AS name, MAX(artists) AS artists, COUNT(*) AS plays
@@ -61,9 +61,9 @@ export async function runSpotifyLikes(deps: SpotifyLikesDeps): Promise<SpotifyLi
        HAVING COUNT(*) > ?
         ORDER BY plays DESC`,
     )
-    .all(windowStart, PLAY_THRESHOLD) as Candidate[];
+    .all(windowStart, settings.num("spotify.play_threshold")) as Candidate[];
   log(
-    `${candidates.length} track(s) played more than ${PLAY_THRESHOLD} times in the last ${WINDOW_DAYS} days`,
+    `${candidates.length} track(s) played more than ${settings.num("spotify.play_threshold")} times in the last ${settings.num("spotify.window_days")} days`,
   );
 
   // 3. Ask Spotify which of these (and my recent plays) are already liked.
@@ -74,7 +74,7 @@ export async function runSpotifyLikes(deps: SpotifyLikesDeps): Promise<SpotifyLi
     `INSERT INTO track_status (track_id, is_liked, checked_at) VALUES (?, ?, ?)
      ON CONFLICT(track_id) DO UPDATE SET is_liked = excluded.is_liked, checked_at = excluded.checked_at`,
   );
-  for (const batch of chunk(toCheck, LIKE_BATCH)) {
+  for (const batch of chunk(toCheck, settings.num("spotify.like_batch"))) {
     const flags = await client.areLiked(batch);
     batch.forEach((id, i) => {
       isLiked.set(id, flags[i]);
@@ -106,7 +106,7 @@ export async function runSpotifyLikes(deps: SpotifyLikesDeps): Promise<SpotifyLi
       result.wouldLike.push(c.track_id);
     }
   } else {
-    for (const batch of chunk(toLike, LIKE_BATCH)) {
+    for (const batch of chunk(toLike, settings.num("spotify.like_batch"))) {
       await client.like(batch.map((c) => c.track_id));
       db.transaction(() => {
         for (const c of batch) {

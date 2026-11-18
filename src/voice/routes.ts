@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { settings } from "../settings";
 import fs from "node:fs";
 import path from "node:path";
 import type Database from "better-sqlite3";
@@ -29,7 +30,7 @@ export interface VoiceDeps {
   secret: string | undefined;
   ownerPhone: string | undefined;
   /** US$ per month; at 100% the tools stop answering. */
-  capUsd: number;
+  capUsd: number | (() => number);
   /** The saved Vapi assistant to connect an accepted caller to. */
   assistantId: () => string | null;
   notify: (text: string, options?: { dedupeKey?: string; cooldownMs?: number; canWait?: boolean }) => unknown;
@@ -51,6 +52,7 @@ export function createVoiceApp(deps: VoiceDeps): Hono {
   const app = new Hono();
   const now = () => (deps.now ?? (() => new Date()))();
   const log = deps.log ?? (() => {});
+  const cap = () => (typeof deps.capUsd === "function" ? deps.capUsd() : deps.capUsd);
 
   app.use("*", async (c, next) => {
     if (!isAuthorized(c.req.header("authorization"), deps.secret)) return c.body(null, 401);
@@ -69,7 +71,7 @@ export function createVoiceApp(deps: VoiceDeps): Hono {
       log("tool call refused: unknown call");
       return answer("I can't do that on this call.");
     }
-    if (budget(deps.db, now(), deps.capUsd).level === "capped") return answer(LIMIT_MESSAGE);
+    if (budget(deps.db, now(), cap()).level === "capped") return answer(LIMIT_MESSAGE);
     const items = [];
     for (const r of requests) {
       const started = performance.now();
@@ -105,7 +107,7 @@ export function createVoiceApp(deps: VoiceDeps): Hono {
         if (row.cost_usd !== null) recordUsage(deps.db, row.cost_usd, now());
         const mins = row.duration_s === null ? "" : ` (${row.duration_s}s${money(row.cost_usd)})`;
         deps.notify(`📞 ${row.summary ?? "Call ended."}${mins}`, { canWait: true });
-        const warning = budgetAlert(deps.db, now(), deps.capUsd);
+        const warning = budgetAlert(deps.db, now(), cap());
         if (warning) deps.notify(warning);
         deps.onCallEnded?.(row);
       }
@@ -145,7 +147,7 @@ export const voiceRoutes = createVoiceApp({
   enabled: config.VOICE_ENABLED,
   secret: config.VAPI_WEBHOOK_SECRET,
   ownerPhone: config.OWNER_PHONE,
-  capUsd: config.VOICE_MONTHLY_CAP_USD,
+  capUsd: () => settings.num("voice.monthly_cap_usd"),
   assistantId: savedAssistantId,
   notify,
   onCallEnded: (call) => onCallEnded?.(call),

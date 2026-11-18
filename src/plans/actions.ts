@@ -1,14 +1,12 @@
 import type Database from "better-sqlite3";
+import { settings } from "../settings";
 import { oneLine } from "../telegram/format";
 import type { Outbox } from "../telegram/outbox";
 import { dayKey, dayLabel, formatClock, NIGHT_ENDS_HOUR, startOfDay, zonedTime, zoned } from "../telegram/time";
 import type { BusyEvent, CalendarClient } from "./calendar";
 import { mapsUrl, markAsked, placesToAsk, questionText, resolveLocation } from "./places";
 import {
-  CALENDAR_CREATES_PER_DAY,
-  CALENDAR_MIN_CONFIDENCE,
   COOLDOWN_CALENDAR_MS,
-  DEFAULT_EVENT_HOURS,
 } from "./settings";
 import {
   addStance,
@@ -61,8 +59,8 @@ function instant(date: string, time: string): Date {
 export function eventTimes(p: Plan): { start: Date; end: Date } | null {
   if (!p.date || !p.start_time) return null;
   const start = instant(p.date, p.start_time);
-  const end = p.end_time ? instant(p.date, p.end_time) : new Date(start.getTime() + DEFAULT_EVENT_HOURS * 3_600_000);
-  return { start, end: end > start ? end : new Date(start.getTime() + DEFAULT_EVENT_HOURS * 3_600_000) };
+  const end = p.end_time ? instant(p.date, p.end_time) : new Date(start.getTime() + settings.num("plans.default_event_hours") * 3_600_000);
+  return { start, end: end > start ? end : new Date(start.getTime() + settings.num("plans.default_event_hours") * 3_600_000) };
 }
 /** "Sat 14 Nov, 7:00pm" (or just the day when there is no time). */
 export function whenLabel(p: Plan): string {
@@ -79,7 +77,7 @@ const isPast = (p: Plan, now: Date) => {
 
 /** Everything needed for a calendar event: committed, confirmed, an exact day AND time, sure enough. */
 export function wantsEvent(p: Plan): boolean {
-  return p.my_stance === "committed" && p.plan_status === "confirmed" && p.date_certainty === "exact" && !!p.date && !!p.start_time && p.confidence >= CALENDAR_MIN_CONFIDENCE;
+  return p.my_stance === "committed" && p.plan_status === "confirmed" && p.date_certainty === "exact" && !!p.date && !!p.start_time && p.confidence >= settings.num("plans.calendar_min_confidence");
 }
 
 /** The event's version also changes when the saved address of its place does. */
@@ -141,8 +139,8 @@ export async function createEventNow(deps: ActionDeps, plan: Plan, opts: { force
   const z = zoned(now);
   const todayStart = startOfDay(z.year, z.month, z.day).toISOString();
   const made = (db.prepare(`SELECT COUNT(*) FROM plan_actions WHERE kind = 'create' AND dry_run = 0 AND created_at >= ?`).pluck().get(todayStart) as number) ?? 0;
-  if (made >= CALENDAR_CREATES_PER_DAY) {
-    deps.notify(`⚠️ Calendar limit reached (${CALENDAR_CREATES_PER_DAY} new events a day). I did not add: ${describe(plan)} (${pid}).`, {
+  if (made >= settings.num("plans.calendar_creates_per_day")) {
+    deps.notify(`⚠️ Calendar limit reached (${settings.num("plans.calendar_creates_per_day")} new events a day). I did not add: ${describe(plan)} (${pid}).`, {
       dedupeKey: `calendar-cap-${dayKey(now)}`,
       cooldownMs: 24 * 3_600_000,
       canWait: true,

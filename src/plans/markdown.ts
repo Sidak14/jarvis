@@ -1,8 +1,9 @@
 import fs from "node:fs";
+import { settings } from "../settings";
 import path from "node:path";
 import type Database from "better-sqlite3";
 import { dayKey, startOfDay, zoned } from "../telegram/time";
-import { ARCHIVE_AFTER_DAYS, ARCHIVE_FILE, PLANS_FILE } from "./settings";
+import { ARCHIVE_FILE, PLANS_FILE } from "./settings";
 import { allPlans, planCode, parsePlanCode, stanceTimeline, updatePlan, type Plan, type StanceEntry } from "./store";
 
 // plans.md: a readable copy of the plans, written by CODE only (never by the model) from the
@@ -114,7 +115,7 @@ function recordsFor(db: Database.Database, plans: Plan[]): PlanRecord[] {
 /** Plans whose day was more than 14 days ago (or, with no day, last touched that long ago) are archived. */
 function isStale(p: Plan, now: Date): boolean {
   const z = zoned(now);
-  const cutoff = dayKey(new Date(startOfDay(z.year, z.month, z.day - ARCHIVE_AFTER_DAYS).getTime() + 12 * 3_600_000));
+  const cutoff = dayKey(new Date(startOfDay(z.year, z.month, z.day - settings.num("plans.archive_after_days")).getTime() + 12 * 3_600_000));
   return (p.date ?? p.last_updated.slice(0, 10)) < cutoff;
 }
 

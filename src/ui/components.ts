@@ -146,7 +146,7 @@ export function BarList(items: { label: string; value: number; text: Part }[]): 
 }
 
 // ---- The page shell
-export type NavKey = "overview" | "expenses" | "plans" | "spotify" | "invoices" | "jobs" | "calls" | "dashboard";
+export type NavKey = "overview" | "expenses" | "plans" | "spotify" | "invoices" | "jobs" | "calls" | "home" | "dashboard";
 const NAV: { key: NavKey; label: string; href: string }[] = [
   { key: "overview", label: "Overview", href: "/" },
   { key: "expenses", label: "Expenses", href: "/expenses" },
@@ -155,11 +155,12 @@ const NAV: { key: NavKey; label: string; href: string }[] = [
   { key: "invoices", label: "Invoices", href: "/gmail" },
   { key: "jobs", label: "Jobs", href: "/jobs" },
   { key: "calls", label: "Calls", href: "/calls" },
+  { key: "home", label: "Home Assistant", href: "/home-assistant" },
   { key: "dashboard", label: "Dashboard", href: "/dashboard" },
 ];
 
 /** Bump when dashboard.css / dashboard.js change, so browsers fetch the new files. */
-export const ASSET_VERSION = "1";
+export const ASSET_VERSION = "2";
 
 export function PageLayout(opts: { title: string; active: NavKey | null; body: Html; now: Date; subtitle?: string; bare?: boolean }): string {
   const nav = NAV.map((n) => h`<a href="${n.href}"${raw(opts.active === n.key ? ` aria-current="page"` : "")}>${n.label}</a>`);

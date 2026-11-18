@@ -1,4 +1,5 @@
-import { JOB_NAME, LOOKBACK_DAYS, POLL_CRON } from "../../gmail/settings";
+import { JOB_NAME, POLL_CRON } from "../../gmail/settings";
+import { settings } from "../../settings";
 import { scheduleToWords } from "../format";
 import { buildAiUsage, type AiUsageVM } from "./ai";
 import type { UiContext } from "./types";
@@ -68,7 +69,7 @@ export function buildGmail(ctx: UiContext, opts: { filter?: string | null; runId
     connected: flags.gmailConnected,
     dryRun: flags.gmailDryRun,
     scheduleText: scheduleToWords(POLL_CRON),
-    lookbackDays: LOOKBACK_DAYS,
+    lookbackDays: settings.num("gmail.lookback_days"),
     lastRun: state
       ? { at: new Date(state.last_run_at), status: state.last_status === "success" ? "success" : "failure", dryRun: state.dry_run === 1, checked: state.checked, invoices: state.invoices, added: state.added, merges: state.merges, errors: state.errors, lastError: state.last_error, aiBlocked: state.ai_blocked }
       : null,

@@ -1,5 +1,7 @@
 import { Cron } from "croner";
 import { db } from "./db";
+import { checkCron } from "./settings/cron";
+import { settings } from "./settings";
 
 export interface JobContext {
   /** Append a line to this run's captured log. */
@@ -18,7 +20,10 @@ interface Registered {
   cron: Cron;
   handler: JobHandler;
   quiet: boolean;
+  /** The schedule in use now (a saved one from the dashboard, or the default). */
   expression: string;
+  /** The schedule written in code. */
+  defaultExpression: string;
   timezone: string | null;
 }
 
@@ -119,21 +124,47 @@ async function execute(name: string): Promise<RunResult> {
   }
 }
 
+const jobKey = (name: string) => `jobs.cron.${name}`;
+
+function makeCron(name: string, expression: string, timezone: string | undefined): Cron {
+  return new Cron(expression, { name, protect: true, timezone, catch: (e) => console.error(`[runner] ${name} crashed:`, e) }, async () => {
+    await execute(name);
+  });
+}
+
 export function registerJob(name: string, cronExpression: string, handler: JobHandler, options: JobOptions = {}): void {
   if (registry.has(name)) throw new Error(`job already registered: ${name}`);
 
-  const cron = new Cron(
-    cronExpression,
-    { name, protect: true, timezone: options.timezone, catch: (e) => console.error(`[runner] ${name} crashed:`, e) },
-    async () => {
-      await execute(name);
-    },
-  );
-  registry.set(name, { cron, handler, quiet: options.quiet ?? false, expression: cronExpression, timezone: options.timezone ?? null });
+  // A schedule I saved on the Jobs page wins over the one in code (if it is still valid).
+  const saved = settings.raw(jobKey(name));
+  const expression = saved && !checkCron(saved) ? saved : cronExpression;
+  const cron = makeCron(name, expression, options.timezone);
+  registry.set(name, { cron, handler, quiet: options.quiet ?? false, expression, defaultExpression: cronExpression, timezone: options.timezone ?? null });
 
-  upsertJob.run(name, cronExpression);
+  upsertJob.run(name, expression);
   setNext.run(iso(cron.nextRun()), name);
-  console.log(`[runner] registered ${name} (${cronExpression})`);
+  console.log(`[runner] registered ${name} (${expression})`);
+}
+
+/** Change a job's schedule now (no restart). An empty text puts back the schedule written in code. Returns an error message, or null. */
+export function rescheduleJob(name: string, expression: string): string | null {
+  const entry = registry.get(name);
+  if (!entry) return "unknown job";
+  const wanted = expression.trim() || entry.defaultExpression;
+  const problem = checkCron(wanted);
+  if (problem) return problem;
+  entry.cron.stop();
+  entry.cron = makeCron(name, wanted, entry.timezone ?? undefined);
+  entry.expression = wanted;
+  upsertJob.run(name, wanted);
+  setNext.run(iso(entry.cron.nextRun()), name);
+  console.log(`[runner] ${name} rescheduled to ${wanted}`);
+  return null;
+}
+
+/** The schedules of every registered job: in use now, and the default in code. */
+export function jobSchedules(): { name: string; expression: string; defaultExpression: string }[] {
+  return [...registry.entries()].map(([name, r]) => ({ name, expression: r.expression, defaultExpression: r.defaultExpression }));
 }
 
 /** Start a registered job now and return immediately (used by the webhook). */
@@ -158,6 +189,13 @@ export function listRegisteredJobs(): { name: string; cron: string; timezone: st
     return { name, cron: r.expression, timezone: r.timezone, intervalMs: a && b ? b.getTime() - a.getTime() : 0 };
   });
 }
+
+// Saving or resetting a schedule on the Jobs page applies at once.
+settings.onChange((key) => {
+  if (!key.startsWith("jobs.cron.")) return;
+  const name = key.slice("jobs.cron.".length);
+  rescheduleJob(name, settings.raw(key) ?? "");
+});
 
 export function stopAllJobs(): void {
   for (const { cron } of registry.values()) cron.stop();

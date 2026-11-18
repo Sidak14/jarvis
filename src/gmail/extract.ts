@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { settings } from "../settings";
 import type { Llm } from "../ai/llm";
 import { resolveTimestamp } from "../datetime";
 import type { EmailKind } from "../expenses/match";
@@ -8,7 +9,6 @@ import {
   DEFAULT_CURRENCY,
   MAX_AGE_DAYS,
   MAX_AMOUNT_CENTS,
-  MIN_CONFIDENCE,
   PROMPT_HEAD_CHARS,
   PROMPT_TAIL_CHARS,
 } from "./settings";
@@ -107,7 +107,7 @@ const validCurrency = (c: string) => CURRENCIES.has(c);
 /** Sanity checks on what the model said. Anything odd is rejected, never guessed at. */
 export function validateExtraction(ex: Extraction, emailDate: string, now = new Date()): Verdict {
   if (!ex.is_invoice) return { ok: false, kind: "not_invoice", reason: "model: not a payment receipt" };
-  if (ex.confidence == null || !(ex.confidence >= MIN_CONFIDENCE)) {
+  if (ex.confidence == null || !(ex.confidence >= settings.num("gmail.min_confidence"))) {
     return { ok: false, kind: "not_invoice", reason: "low confidence" };
   }
 

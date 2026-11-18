@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { settings } from "../settings";
 import { dayKey, zoned } from "../telegram/time";
 import { budget } from "./budget";
 import { registerCall, renameCall, type CallRow } from "./calls";
@@ -19,7 +20,7 @@ export interface AlertKind {
 }
 export const ALERT_KINDS: Record<string, AlertKind> = { garage_open: { urgent: true } };
 
-/** How long the garage must be open before Jarvis phones. VOICE_GARAGE_OPEN_SECONDS in .env changes it (for testing). */
+// The defaults. The live values are settings (voice.* on the Calls page), read where they are used.
 export const GARAGE_OPEN_SECONDS = 600;
 export const MIN_GAP_MS = 30 * 60_000;
 export const MAX_PER_DAY = 3;
@@ -46,10 +47,10 @@ export function decide(ep: Episode, now: Date, opts: { stillActive: boolean; bud
   if (!kind) return { action: "stop", reason: "unknown kind" };
   const today = dayKey(now);
   const attemptsToday = ep.attempts_day === today ? ep.attempts_today : 0;
-  if (attemptsToday >= MAX_PER_DAY) return { action: "wait", reason: "daily limit" };
-  if (ep.last_attempt_at && now.getTime() - Date.parse(ep.last_attempt_at) < MIN_GAP_MS) return { action: "wait", reason: "too soon after the last attempt" };
+  if (attemptsToday >= settings.num("voice.max_calls_per_day")) return { action: "wait", reason: "daily limit" };
+  if (ep.last_attempt_at && now.getTime() - Date.parse(ep.last_attempt_at) < settings.num("voice.min_gap_minutes") * 60_000) return { action: "wait", reason: "too soon after the last attempt" };
   const hour = zoned(now).hour;
-  if (!kind.urgent && (hour >= QUIET_FROM_HOUR || hour < QUIET_UNTIL_HOUR)) return { action: "wait", reason: "quiet hours" };
+  if (!kind.urgent && (hour >= settings.num("voice.quiet_from_hour") || hour < settings.num("voice.quiet_until_hour"))) return { action: "wait", reason: "quiet hours" };
   if (opts.budgetCapped) return { action: "telegram_only", reason: "the monthly voice limit is reached" };
   return { action: "call" };
 }
@@ -93,8 +94,8 @@ export interface AlertDeps {
   now: () => Date;
   enabled: boolean;
   ownerPhone: string | undefined;
-  capUsd: number;
-  /** Seconds the garage must be open before it counts as left open (default GARAGE_OPEN_SECONDS). */
+  capUsd: number | (() => number);
+  /** Seconds the garage must be open before it counts as left open (default: the setting). */
   openAfterSeconds?: number;
   /** The garage as it is right now, or an error. */
   garage: () => Promise<GarageReading>;
@@ -126,13 +127,13 @@ export async function runAlerts(deps: AlertDeps): Promise<string[]> {
   // An unreadable garage changes nothing: it is neither "open" nor "fixed".
   if (reading.state === "unavailable") return did;
 
-  const openLongEnough = reading.state === "open" && reading.sinceMs !== null && reading.sinceMs >= (deps.openAfterSeconds ?? GARAGE_OPEN_SECONDS) * 1000;
+  const openLongEnough = reading.state === "open" && reading.sinceMs !== null && reading.sinceMs >= (deps.openAfterSeconds ?? settings.num("voice.garage_open_seconds")) * 1000;
   if (openLongEnough) openEpisode(deps.db, "garage_open", now, { open_since: new Date(now.getTime() - (reading.sinceMs ?? 0)).toISOString() });
   else if (reading.state === "closed" && resolveEpisodes(deps.db, "garage_open", now)) did.push("garage_open: resolved");
 
   for (const ep of openEpisodes(deps.db)) {
     const stillActive = ep.kind === "garage_open" ? reading.state === "open" || reading.state === "opening" || reading.state === "closing" : true;
-    const decision = decide(ep, now, { stillActive, budgetCapped: budget(deps.db, now, deps.capUsd).level === "capped" });
+    const decision = decide(ep, now, { stillActive, budgetCapped: budget(deps.db, now, typeof deps.capUsd === "function" ? deps.capUsd() : deps.capUsd).level === "capped" });
     if (decision.action === "stop") {
       if (decision.reason !== "resolved") resolveEpisodes(deps.db, ep.kind, now);
       continue;

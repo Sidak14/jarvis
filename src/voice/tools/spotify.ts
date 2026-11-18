@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PLAY_THRESHOLD, WINDOW_DAYS } from "../../spotify/settings";
+import { settings } from "../../settings";
 import { defineTool } from "../registry";
 import { quoted } from "../sanitize";
 import { listSpoken, words } from "../speak";
@@ -18,7 +18,7 @@ export const spotifyRecent = (deps: ToolDeps) =>
       const song = (r: { name: string; artists: string }) => `${quoted(r.name, 50)} by ${quoted(r.artists.split(",")[0], 40).slice(1, -1)}`;
       const plays = deps.db.prepare(`SELECT MAX(track_name) AS name, MAX(artists) AS artists FROM play_history GROUP BY track_id ORDER BY MAX(played_at) DESC LIMIT 5`).all() as { name: string; artists: string }[];
       const likes = deps.db.prepare(`SELECT track_name AS name FROM likes WHERE source = 'jarvis' ORDER BY liked_at DESC LIMIT 5`).all() as { name: string }[];
-      const since = new Date(ctx.now.getTime() - WINDOW_DAYS * 86_400_000).toISOString();
+      const since = new Date(ctx.now.getTime() - settings.num("spotify.window_days") * 86_400_000).toISOString();
       const close = deps.db
         .prepare(
           `SELECT MAX(track_name) AS name, MAX(artists) AS artists, COUNT(*) AS plays FROM play_history
@@ -26,7 +26,7 @@ export const spotifyRecent = (deps: ToolDeps) =>
             GROUP BY track_id HAVING plays >= 2 ORDER BY plays DESC LIMIT 3`,
         )
         .all(since) as { name: string; artists: string; plays: number }[];
-      const needed = PLAY_THRESHOLD + 1;
+      const needed = settings.num("spotify.play_threshold") + 1;
       if (plays.length === 0 && likes.length === 0) return { speech: "I haven't seen any Spotify plays yet.", data: { plays: [], likes: [] } };
       const parts = [
         plays.length ? `Latest plays: ${listSpoken(plays.map(song))}.` : "",

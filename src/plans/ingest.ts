@@ -1,11 +1,11 @@
 import type Database from "better-sqlite3";
+import { settings } from "../settings";
 import { loadAllowlist } from "./allowlist";
 import type { BeeperChat, BeeperMessage, BeeperReader } from "./beeper";
 import {
   BACKFILL_DAYS,
   KEEP_MESSAGE_IDS_DAYS,
   MAX_PAGES_PER_CHAT,
-  MAX_PHOTOS_IN_DM,
   MAX_TEXT_CHARS,
   MEMBERS_REFRESH_MS,
   PHOTOS_PER_POLL,
@@ -122,7 +122,7 @@ export async function pollChats(deps: {
       const messages = await reader.recentMessages(chat.id, since, firstLook && deps.backfill ? MAX_PAGES_PER_CHAT * 5 : MAX_PAGES_PER_CHAT);
       const readable: BeeperMessage[] = [];
       // Photos are read only in a DM with at most 3 photos lately; in groups, or a DM full of photos, they are ignored.
-      const mayReadPhotos = chat.type === "single" && messages.filter((m) => m.photo).length <= MAX_PHOTOS_IN_DM;
+      const mayReadPhotos = chat.type === "single" && messages.filter((m) => m.photo).length <= settings.num("plans.max_photos_in_dm");
       for (const m of messages) {
         if (!m.photo) {
           readable.push(m);

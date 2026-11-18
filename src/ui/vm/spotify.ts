@@ -1,4 +1,5 @@
-import { JOB_NAME, PLAY_THRESHOLD, POLL_CRON, WINDOW_DAYS } from "../../spotify/settings";
+import { JOB_NAME, POLL_CRON } from "../../spotify/settings";
+import { settings } from "../../settings";
 import { apiCallsToday } from "../../spotify/usage";
 import { scheduleToWords } from "../format";
 import type { UiContext } from "./types";
@@ -54,13 +55,13 @@ interface TrackRow {
 export function likedState(t: { is_liked: number | null; like_source: string | null; plays_in_window: number }): LikedState {
   if (t.like_source === "jarvis") return "jarvis";
   if (t.is_liked === 1) return "liked";
-  if (t.is_liked === 0) return t.plays_in_window > PLAY_THRESHOLD ? "due" : "not";
+  if (t.is_liked === 0) return t.plays_in_window > settings.num("spotify.play_threshold") ? "due" : "not";
   return "unknown";
 }
 
 export function buildSpotify(ctx: UiContext, runId?: number): SpotifyVM {
   const { db, now, flags } = ctx;
-  const windowStart = new Date(now.getTime() - WINDOW_DAYS * 86_400_000).toISOString();
+  const windowStart = new Date(now.getTime() - settings.num("spotify.window_days") * 86_400_000).toISOString();
   const tracks = db
     .prepare(
       `SELECT p.track_id, MAX(p.track_name) AS name, MAX(p.artists) AS artists, MAX(p.played_at) AS last_played,
@@ -85,9 +86,9 @@ export function buildSpotify(ctx: UiContext, runId?: number): SpotifyVM {
     configured: flags.spotifyConfigured,
     connected: flags.spotifyConnected,
     dryRun: flags.spotifyDryRun,
-    threshold: PLAY_THRESHOLD + 1,
-    windowDays: WINDOW_DAYS,
-    ruleText: `${PLAY_THRESHOLD + 1} plays in ${WINDOW_DAYS} days`,
+    threshold: settings.num("spotify.play_threshold") + 1,
+    windowDays: settings.num("spotify.window_days"),
+    ruleText: `${settings.num("spotify.play_threshold") + 1} plays in ${settings.num("spotify.window_days")} days`,
     scheduleText: scheduleToWords(POLL_CRON),
     nextRunAt: job?.next_run_at ? new Date(job.next_run_at) : null,
     lastRunAt: job?.last_run_at ? new Date(job.last_run_at) : null,

@@ -55,3 +55,23 @@ export function findLight(entities: Entities, spoken: string): Entities["lights"
 
 /** Every entity voice may read or write, for the Home Assistant client's allowlist. */
 export const allowedEntities = (e: Entities): string[] => [e.garage.cover, e.garage.status, e.garage.sensor, e.garage.opener, ...e.lights.map((l) => l.entity)];
+
+// ---- the lights list as editable text, one light per line: "name | switch.entity | alias, alias"
+export const lightsToText = (lights: Entities["lights"]): string => lights.map((l) => `${l.name} | ${l.entity}${l.aliases.length ? ` | ${l.aliases.join(", ")}` : ""}`).join("\n");
+
+/** Parses the text above and applies every safety rule (never the main-circuit light, no duplicates, unambiguous names). Throws a plain message. */
+export function parseLightLines(text: string): Entities["lights"] {
+  const lights = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"))
+    .map((line) => {
+      const [name, ent, aliases] = line.split("|").map((x) => x.trim());
+      if (!name || !ent) throw new Error(`"${line.slice(0, 40)}": write it as  name | switch.entity | alias, alias`);
+      return { name, entity: ent, aliases: (aliases ?? "").split(",").map((a) => a.trim()).filter(Boolean) };
+    });
+  if (!lights.length) throw new Error("list at least one light");
+  const check = z.array(z.object({ name: z.string().min(2), entity, aliases: z.array(z.string()) })).safeParse(lights);
+  if (!check.success) throw new Error(check.error.issues[0].message.replace("must look like domain.name", "the entity must look like switch.name"));
+  return parseEntities(`garage: { cover: a.b, status: a.b, sensor: a.b, opener: a.b }\nlights: ${JSON.stringify(lights)}`).lights;
+}

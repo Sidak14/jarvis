@@ -1,4 +1,5 @@
 import { config } from "../config";
+import { settings } from "../settings";
 import { db } from "../db";
 import { registerJob } from "../runner";
 import { notify } from "../telegram";
@@ -18,15 +19,14 @@ const VOICE_CRON = "*/5 * * * *";
 function alertDeps(): AlertDeps {
   const placer =
     config.VAPI_API_KEY && config.VAPI_PHONE_NUMBER_ID
-      ? vapiCalls({ apiKey: config.VAPI_API_KEY, phoneNumberId: config.VAPI_PHONE_NUMBER_ID, assistantId: savedAssistantId })
+      ? vapiCalls({ apiKey: config.VAPI_API_KEY, phoneNumberId: config.VAPI_PHONE_NUMBER_ID, assistantId: savedAssistantId, maxSeconds: settings.num("voice.alert_call_max_seconds") })
       : null;
   return {
     db,
     now: () => new Date(),
     enabled: config.VOICE_ENABLED && Boolean(config.OWNER_PHONE),
     ownerPhone: config.OWNER_PHONE,
-    capUsd: config.VOICE_MONTHLY_CAP_USD,
-    openAfterSeconds: config.VOICE_GARAGE_OPEN_SECONDS,
+    capUsd: () => settings.num("voice.monthly_cap_usd"),
     garage: () => readGarage(toolDeps, new Date()),
     placeCall: async ({ alert }) => {
       if (!placer || !config.OWNER_PHONE) throw new Error("Vapi is not set up");
@@ -54,4 +54,16 @@ export function registerVoice(): void {
 }
 
 /** The Home Assistant webhook (mounted in app.ts). */
-export const haWebhookRoutes = createHaWebhook({ secret: config.WEBHOOK_SECRET, onGarageOpen: checkAlerts, log: (m) => console.log(`[voice] ${m}`) });
+let garageTimer: NodeJS.Timeout | undefined;
+/**
+ * Home Assistant tells Jarvis the moment the door opens. Jarvis keeps the time itself, so changing "phone me after" on the
+ * dashboard needs no change in Home Assistant: look now, and again once the door has been open that long.
+ */
+export async function onGarageOpened(): Promise<void> {
+  clearTimeout(garageTimer);
+  garageTimer = setTimeout(() => void checkAlerts().catch((err) => console.error(`[voice] garage timer check failed: ${(err as Error).message}`)), (settings.num("voice.garage_open_seconds") + 3) * 1000);
+  garageTimer.unref();
+  await checkAlerts();
+}
+
+export const haWebhookRoutes = createHaWebhook({ secret: config.WEBHOOK_SECRET, onGarageOpen: onGarageOpened, log: (m) => console.log(`[voice] ${m}`) });

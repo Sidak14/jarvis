@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { settings } from "../settings";
 import { AiCapError, LlmError } from "../ai/llm";
 import { listPlaces } from "./places";
 import { LlmJsonError } from "../ai/json";
@@ -8,13 +9,11 @@ import type { DetectInput, Detector, PromptMessage, PromptPlan } from "./detect"
 import { looksLikePlan } from "./prefilter";
 import {
   BATCH_MAX_MESSAGES,
-  FORCE_AFTER_MS,
   MAX_DETECT_ATTEMPTS,
   OPEN_PLAN_DM_DAYS,
   PLANS_IN_PROMPT,
   PLANS_RECENT_DAYS,
   PLANS_UPCOMING_DAYS,
-  QUIET_MS,
 } from "./settings";
 import { allPlans, setState, stanceTimeline, type Plan } from "./store";
 
@@ -109,8 +108,8 @@ export async function runDetection(deps: {
 
   for (const chat of chats) {
     // Quiet for 3 minutes, or busy for 30: whichever comes first.
-    const quiet = now.getTime() - Date.parse(chat.newest) >= QUIET_MS;
-    const forced = now.getTime() - Date.parse(chat.first_seen) >= FORCE_AFTER_MS;
+    const quiet = now.getTime() - Date.parse(chat.newest) >= settings.num("plans.quiet_minutes") * 60_000;
+    const forced = now.getTime() - Date.parse(chat.first_seen) >= settings.num("plans.force_after_minutes") * 60_000;
     if (!quiet && !forced) continue;
 
     const rows = db

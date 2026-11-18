@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { appendToPage, flashFrom, SettingsPanel } from "../ui/settings";
 import { Hono } from "hono";
 import { dashboardAccess } from "../access";
 import { esc, layout } from "../html";
@@ -61,5 +62,5 @@ gmailRoutes.post("/run", dashboardAccess, async (c) => {
 gmailRoutes.get("/", dashboardAccess, (c) => {
   const ctx = liveContext();
   const vm = buildGmail(ctx, { filter: c.req.query("result"), runId: Number(c.req.query("run")) });
-  return c.html(invoicesPage(vm, ctx.now, { busy: c.req.query("notice") === "busy" }));
+  return c.html(appendToPage(invoicesPage(vm, ctx.now, { busy: c.req.query("notice") === "busy" }), SettingsPanel({ group: "gmail", back: "/gmail", flash: flashFrom(c.req.query()) })));
 });

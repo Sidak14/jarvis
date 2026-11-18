@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { appendToPage, flashFrom, SettingsPanel } from "../ui/settings";
 import { Hono } from "hono";
 import { dashboardAccess } from "../access";
 import { esc, layout } from "../html";
@@ -45,5 +46,5 @@ calendarRoutes.get("/callback", dashboardAccess, async (c) => {
 // ---- /plans: read-only (the page is built in src/ui: view-model + template)
 plansRoutes.get("/", dashboardAccess, (c) => {
   const ctx = liveContext();
-  return c.html(plansPage(buildPlans(ctx), ctx.now));
+  return c.html(appendToPage(plansPage(buildPlans(ctx), ctx.now), SettingsPanel({ group: "plans", back: "/plans", flash: flashFrom(c.req.query()) })));
 });

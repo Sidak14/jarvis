@@ -1,4 +1,5 @@
 import type { HaClient } from "../fridge/ha";
+import { settings } from "../settings";
 
 // Arriving home opens the garage, but only if it is closed and the opener is reachable. Open, moving or unreadable: do nothing.
 
@@ -19,19 +20,17 @@ export async function openGarageOnArrival(ha: HaClient): Promise<ArriveResult> {
 
 export type LeaveResult = "closed" | "not open" | "opened a while ago" | "back home" | "unreadable" | "failed";
 
-const WAIT_AFTER_LEAVING_MS = 60_000;
-/** A door opened more recently than this, as I leave, was left open by mistake. One opened earlier was meant to stay open. */
-const LEFT_OPEN_WITHIN_MS = 3 * 60_000;
+// The wait after leaving and the "opened recently" window are settings (location.* on the Home Assistant page).
 
 /**
- * Someone left home: wait a minute, then if the garage is open and was opened in the last 3 minutes, close it.
+ * Someone left home: wait a bit, then if the garage is open and was opened a few minutes ago, close it.
  * (A door that has been open longer than that was opened on purpose.) Does nothing if they are back home by then.
  */
 export async function closeGarageAfterLeaving(
   ha: HaClient,
   opts: { stillAway: () => boolean; sleep?: (ms: number) => Promise<void>; waitMs?: number; withinMs?: number },
 ): Promise<LeaveResult> {
-  await (opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms))))(opts.waitMs ?? WAIT_AFTER_LEAVING_MS);
+  await (opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms))))(opts.waitMs ?? settings.num("location.leave_wait_seconds") * 1000);
   try {
     if (!opts.stillAway()) return "back home";
     const garage = await ha.garage();
@@ -39,7 +38,7 @@ export async function closeGarageAfterLeaving(
     if (garage.state !== "open") return "not open";
     const openFor = await ha.garageStateAgeMs();
     if (openFor === null) return "unreadable";
-    if (openFor > (opts.withinMs ?? LEFT_OPEN_WITHIN_MS)) return "opened a while ago";
+    if (openFor > (opts.withinMs ?? settings.num("location.left_open_minutes") * 60_000)) return "opened a while ago";
     await ha.pressGarage("close");
     return "closed";
   } catch {

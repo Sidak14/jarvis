@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { DAILY_CALL_CAP, MONTHLY_SPEND_CAP_USD } from "../../ai/settings";
+import { settings } from "../../settings";
 import { aiCallsToday, aiSpendThisMonth } from "../../ai/usage";
 
 // AI spend for the whole server: the real total (every feature shares one cap) plus a per-feature breakdown.
@@ -27,10 +27,10 @@ export function buildAiUsage(db: Database.Database, now: Date): AiUsageVM {
   const tagged = byFeature.reduce((sum, f) => sum + f.costUsd, 0);
   return {
     spendUsd,
-    capUsd: MONTHLY_SPEND_CAP_USD,
-    fraction: MONTHLY_SPEND_CAP_USD ? spendUsd / MONTHLY_SPEND_CAP_USD : 0,
+    capUsd: settings.num("ai.monthly_cap_usd"),
+    fraction: settings.num("ai.monthly_cap_usd") ? spendUsd / settings.num("ai.monthly_cap_usd") : 0,
     callsToday: aiCallsToday(db, now),
-    callCap: DAILY_CALL_CAP,
+    callCap: settings.num("ai.daily_call_cap"),
     byFeature,
     untaggedUsd: Math.max(0, spendUsd - tagged),
   };

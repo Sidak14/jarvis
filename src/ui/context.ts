@@ -1,4 +1,5 @@
 import { config } from "../config";
+import { settings } from "../settings";
 import { db } from "../db";
 import { gmailAuth } from "../gmail/index";
 import { calendarAuth } from "../plans/index";
@@ -32,9 +33,9 @@ export function liveContext(now = new Date()): UiContext {
       voice: {
         enabled: config.VOICE_ENABLED,
         configured: Boolean(config.VAPI_API_KEY && config.VAPI_WEBHOOK_SECRET && config.OWNER_PHONE),
-        writesLive: config.VOICE_HA_WRITES === "live",
+        writesLive: settings.str("voice.ha_writes") === "live",
         phraseSet: Boolean(config.VOICE_OPEN_PHRASE),
-        capUsd: config.VOICE_MONTHLY_CAP_USD,
+        capUsd: settings.num("voice.monthly_cap_usd"),
       },
     },
   };

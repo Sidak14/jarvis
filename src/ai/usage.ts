@@ -1,8 +1,7 @@
 import type Database from "better-sqlite3";
+import { settings } from "../settings";
 import {
   AI_PROVIDER,
-  DAILY_CALL_CAP,
-  MONTHLY_SPEND_CAP_USD,
   PRICE_PER_INPUT_TOKEN,
   PRICE_PER_OUTPUT_TOKEN,
 } from "./settings";
@@ -30,7 +29,7 @@ export function recordAiCall(
   ).run(
     AI_PROVIDER,
     day(now),
-    DAILY_CALL_CAP,
+    settings.num("ai.daily_call_cap"),
     tokens.inputTokens,
     tokens.outputTokens,
     estimateCostUsd(tokens.inputTokens, tokens.outputTokens),
@@ -67,10 +66,10 @@ export function aiSpendThisMonth(db: Database.Database, now = new Date()): numbe
 /** Why no more LLM calls are allowed right now, or null if we are under both caps. */
 export function aiCapReason(db: Database.Database, now = new Date()): string | null {
   const calls = aiCallsToday(db, now);
-  if (calls >= DAILY_CALL_CAP) return `daily AI call cap reached (${calls}/${DAILY_CALL_CAP})`;
+  if (calls >= settings.num("ai.daily_call_cap")) return `daily AI call cap reached (${calls}/${settings.num("ai.daily_call_cap")})`;
   const spend = aiSpendThisMonth(db, now);
-  if (spend >= MONTHLY_SPEND_CAP_USD) {
-    return `monthly AI spend cap reached ($${spend.toFixed(4)} of $${MONTHLY_SPEND_CAP_USD})`;
+  if (spend >= settings.num("ai.monthly_cap_usd")) {
+    return `monthly AI spend cap reached ($${spend.toFixed(4)} of $${settings.num("ai.monthly_cap_usd")})`;
   }
   return null;
 }

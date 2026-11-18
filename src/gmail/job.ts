@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { settings } from "../settings";
 import { AiCapError, type Llm } from "../ai/llm";
 import {
   decideEmailExpense,
@@ -11,7 +12,7 @@ import {
 import { ExtractionError, extract, validateExtraction } from "./extract";
 import { GmailError, type GmailClient } from "./client";
 import { prefilter } from "./filter";
-import { LIST_LIMIT, LOOKBACK_DAYS, MAX_EMAILS_PER_RUN, SEARCH_QUERY } from "./settings";
+import { LIST_LIMIT, SEARCH_QUERY } from "./settings";
 
 export interface GmailExpensesDeps {
   db: Database.Database;
@@ -83,10 +84,10 @@ export async function runGmailExpenses(deps: GmailExpensesDeps): Promise<GmailRu
   }
 
   try {
-    const ids = await gmail.listMessageIds(SEARCH_QUERY(LOOKBACK_DAYS), LIST_LIMIT);
+    const ids = await gmail.listMessageIds(SEARCH_QUERY(settings.num("gmail.lookback_days")), LIST_LIMIT);
     const fresh = ids.filter((id) => !isProcessed.get(id));
-    const todo = fresh.slice(0, MAX_EMAILS_PER_RUN);
-    log(`Gmail matched ${ids.length} email(s) from the last ${LOOKBACK_DAYS} days; ${fresh.length} not processed yet; reading ${todo.length}`);
+    const todo = fresh.slice(0, settings.num("gmail.max_emails_per_run"));
+    log(`Gmail matched ${ids.length} email(s) from the last ${settings.num("gmail.lookback_days")} days; ${fresh.length} not processed yet; reading ${todo.length}`);
 
     for (const id of todo) {
       let email;

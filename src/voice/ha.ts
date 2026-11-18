@@ -16,14 +16,15 @@ export interface VoiceHa {
 
 type FetchFn = (url: string, init?: RequestInit) => Promise<Response>;
 
-export function voiceHa(opts: { baseUrl: string; token: string; allowed: string[]; fetchFn?: FetchFn }): VoiceHa {
+export function voiceHa(opts: { baseUrl: string; token: string; allowed: string[] | (() => string[]); fetchFn?: FetchFn }): VoiceHa {
   const base = opts.baseUrl.replace(/\/+$/, "");
   const fetchFn = opts.fetchFn ?? fetch;
-  const allowed = new Set(opts.allowed);
+  const allowedNow = () => new Set(typeof opts.allowed === "function" ? opts.allowed() : opts.allowed);
   const headers = { Authorization: `Bearer ${opts.token}`, "Content-Type": "application/json" };
 
   return {
     async read(entities) {
+      const allowed = allowedNow();
       for (const e of entities) if (!allowed.has(e)) throw new Error(`${e} is not allowed`);
       const res = await fetchFn(`${base}/api/states`, { headers, signal: AbortSignal.timeout(4000) });
       if (!res.ok) throw new Error(`Home Assistant answered ${res.status}`);
@@ -38,7 +39,7 @@ export function voiceHa(opts: { baseUrl: string; token: string; allowed: string[
     },
 
     async call(domain, service, entity) {
-      if (!allowed.has(entity)) throw new Error(`${entity} is not allowed`);
+      if (!allowedNow().has(entity)) throw new Error(`${entity} is not allowed`);
       if (NEVER_SWITCH.includes(entity)) throw new Error("that circuit must never be switched");
       const res = await fetchFn(`${base}/api/services/${domain}/${service}`, { method: "POST", headers, body: JSON.stringify({ entity_id: entity }), signal: AbortSignal.timeout(6000) });
       if (!res.ok) throw new Error(`Home Assistant answered ${res.status}`);
