@@ -7,6 +7,7 @@ import type Database from "better-sqlite3";
 export const PEOPLE = [
   { key: "me", name: "Gurveer" },
   { key: "mom", name: "Mom" },
+  { key: "sukhleen", name: "Sukhleen" },
 ] as const;
 export type PersonKey = (typeof PEOPLE)[number]["key"];
 
