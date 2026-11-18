@@ -3,6 +3,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { config } from "./config";
 import { createAllTables } from "./schema";
+import { settings } from "./settings";
 
 fs.mkdirSync(path.dirname(config.DB_PATH), { recursive: true });
 
@@ -12,6 +13,7 @@ db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
 createAllTables(db);
+settings.bind(db); // values I changed on the dashboard (defaults until then)
 
 // A run still marked 'running' at startup was cut off by a crash or restart.
 db.prepare(
