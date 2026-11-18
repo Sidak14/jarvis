@@ -326,7 +326,7 @@ It is linked from the main page's nav ("Dashboard"). `/fridge` redirects to it.
   `src/fridge/lights.ts` (that list is the whole permission, and `NEVER_SWITCH` is refused even if added by mistake).
 - **Garage:** the status is `sensor.garage_door_status` and the button calls `cover.open_cover` / `cover.close_cover` on
   `cover.garage_door` (Home Assistant only lets Open through when closed and Close when open). The button asks "Tap again" first.
-- **Where people are:** `GET /dashboard/api/state` (`people`) reads `person_location` (see Location): you, Mom and Sukhleen. When any of them arrives home the garage opens if it is closed.
+- **Where people are:** `GET /dashboard/api/state` (`people`) reads `person_location` (see Location): you, Mom and Sukhleen. When you arrive home the garage opens if it is closed (not for the others); a minute after anyone leaves, a garage opened in the last 3 minutes is closed. Telegram only reports your own arrivals and departures.
 - **Busy times:** `GET /dashboard/api/week`, cached 5 minutes; needs the calendar login (`/calendar/login`).
 - **Reaching it:** `http://127.0.0.1:8080/dashboard` on this Mac, or `https://<PUBLIC_HOST>/dashboard`. The server only listens on
   this Mac (`HOST` in `config.ts`).

@@ -26,6 +26,7 @@ function alertDeps(): AlertDeps {
     enabled: config.VOICE_ENABLED && Boolean(config.OWNER_PHONE),
     ownerPhone: config.OWNER_PHONE,
     capUsd: config.VOICE_MONTHLY_CAP_USD,
+    openAfterSeconds: config.VOICE_GARAGE_OPEN_SECONDS,
     garage: () => readGarage(toolDeps, new Date()),
     placeCall: async ({ alert }) => {
       if (!placer || !config.OWNER_PHONE) throw new Error("Vapi is not set up");

@@ -292,7 +292,7 @@ describe("placing the call with Vapi", () => {
       assistantId: "asst-1",
       phoneNumberId: "pn-1",
       customer: { number: "+61405642326" },
-      assistantOverrides: { firstMessageMode: "assistant-waits-for-user", variableValues: { alert: "the garage has been open for twelve minutes" }, maxDurationSeconds: 180 },
+      assistantOverrides: { firstMessageMode: "assistant-waits-for-user", firstMessage: "", variableValues: { alert: "the garage has been open for twelve minutes" }, maxDurationSeconds: 180 },
     });
   });
 

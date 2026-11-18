@@ -24,6 +24,9 @@ export function vapiCalls(opts: { apiKey: string; phoneNumberId: string; assista
             // Stay silent until a PERSON speaks, so a voicemail greeting is never played the details. The assistant says the
             // alert (a prompt variable) only once somebody has answered; voicemail detection hangs up without a message.
             firstMessageMode: "assistant-waits-for-user",
+            // With a first message, "waits for user" means: wait, then play THAT message ("Jarvis here, how can I help?"). Empty,
+            // the model answers instead, and its prompt (the alert variable below) says who it is and why it called.
+            firstMessage: "",
             variableValues: { alert },
             maxDurationSeconds: opts.maxSeconds ?? 180,
           },

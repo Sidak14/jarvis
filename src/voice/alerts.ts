@@ -19,7 +19,8 @@ export interface AlertKind {
 }
 export const ALERT_KINDS: Record<string, AlertKind> = { garage_open: { urgent: true } };
 
-export const GARAGE_OPEN_MINUTES = 10;
+/** How long the garage must be open before Jarvis phones. VOICE_GARAGE_OPEN_SECONDS in .env changes it (for testing). */
+export const GARAGE_OPEN_SECONDS = 600;
 export const MIN_GAP_MS = 30 * 60_000;
 export const MAX_PER_DAY = 3;
 export const QUIET_FROM_HOUR = 23;
@@ -93,6 +94,8 @@ export interface AlertDeps {
   enabled: boolean;
   ownerPhone: string | undefined;
   capUsd: number;
+  /** Seconds the garage must be open before it counts as left open (default GARAGE_OPEN_SECONDS). */
+  openAfterSeconds?: number;
   /** The garage as it is right now, or an error. */
   garage: () => Promise<GarageReading>;
   /** Phone me (the alert said aloud once I pick up). Resolves to the Vapi call id. */
@@ -123,7 +126,7 @@ export async function runAlerts(deps: AlertDeps): Promise<string[]> {
   // An unreadable garage changes nothing: it is neither "open" nor "fixed".
   if (reading.state === "unavailable") return did;
 
-  const openLongEnough = reading.state === "open" && reading.sinceMs !== null && reading.sinceMs >= GARAGE_OPEN_MINUTES * 60_000;
+  const openLongEnough = reading.state === "open" && reading.sinceMs !== null && reading.sinceMs >= (deps.openAfterSeconds ?? GARAGE_OPEN_SECONDS) * 1000;
   if (openLongEnough) openEpisode(deps.db, "garage_open", now, { open_since: new Date(now.getTime() - (reading.sinceMs ?? 0)).toISOString() });
   else if (reading.state === "closed" && resolveEpisodes(deps.db, "garage_open", now)) did.push("garage_open: resolved");
 
