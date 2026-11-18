@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { addColumnIfMissing } from "../sqlite";
 
 export function createPlansTables(db: Database.Database): void {
   db.exec(`
@@ -148,4 +149,8 @@ export function createPlansTables(db: Database.Database): void {
       updated_at    TEXT NOT NULL
     );
   `);
+  // What Google found for a place's address. address (above) is then Google's full address; typed_address is what I wrote.
+  addColumnIfMissing(db, "places", "typed_address", "TEXT");
+  addColumnIfMissing(db, "places", "place_id", "TEXT");
+  addColumnIfMissing(db, "places", "verified", "INTEGER NOT NULL DEFAULT 0");
 }

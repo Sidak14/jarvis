@@ -31,7 +31,43 @@ ${extra}
 const list = (plans: PlanVM[], now: Date, empty: string, note?: (p: PlanVM) => Html | undefined) =>
   plans.length ? h`<div class="plans">${plans.map((p) => planCard(p, now, note?.(p)))}</div>` : EmptyState(empty);
 
-export function plansPage(vm: PlansVM, now: Date): string {
+export interface PlaceFlash {
+  ok?: string;
+  err?: string;
+}
+
+function placesBlock(vm: PlansVM, flash: PlaceFlash): Html {
+  const unverified = vm.places.filter((p) => p.address && !p.verified).length;
+  const banner = !vm.mapsConfigured
+    ? Banner("warn", "Google Maps isn't configured yet", [{ text: "Addresses are saved as you type them and shown as not verified. Add GOOGLE_MAPS_API_KEY to .env and restart Jarvis to have Google find the full address." }])
+    : "";
+  const msg = flash.err ? Banner("error", flash.err) : flash.ok ? Banner("ok", flash.ok) : "";
+  const verifyAll = vm.mapsConfigured && unverified > 0 ? h`<form method="post" action="/plans/places/verify-all" class="inline"><button class="btn" type="submit">Look up ${unverified} unverified address${unverified === 1 ? "" : "es"} on Google</button></form>` : "";
+  const table = DataTable({
+    caption: "Places Jarvis knows (the AI only sees the names). The address is the one Google found.",
+    id: "places",
+    columns: [{ label: "Place" }, { label: "Address" }, { label: "Status" }, { label: "" }],
+    rows: vm.places.map((p) => ({
+      cells: [
+        p.name,
+        p.address ? (p.mapUrl ? h`<a href="${p.mapUrl}" target="_blank" rel="noreferrer noopener">${p.address}</a>${p.verified && p.typed && p.typed !== p.address ? h`<br><span class="muted">you wrote: ${p.typed}</span>` : ""}` : p.address) : h`<span class="muted">not given yet</span>`,
+        p.verified ? StatusPill("ok", "On Google Maps") : p.address ? StatusPill("warn", "Not verified") : StatusPill("off", "No address"),
+        h`<details class="place-edit"><summary>Edit</summary>
+<form method="post" action="/plans/places/${p.id}/save" class="place-form">
+  <label>Name <input type="text" name="name" value="${p.name}" maxlength="60" required></label>
+  <label>Address <input type="text" name="address" value="${p.typed ?? p.address ?? ""}" maxlength="200" placeholder="e.g. 16 Horsfield Street"></label>
+  <button class="btn primary" type="submit">Save and look up</button>
+</form>
+<form method="post" action="/plans/places/${p.id}/delete" class="inline" onsubmit="return confirm('Delete this place? Plans keep their text; Jarvis will ask again if it comes up.')"><button class="btn danger" type="submit">Delete</button></form></details>`,
+      ],
+    })),
+    empty: EmptyState("No saved places yet", "Jarvis asks on Telegram when a plan is at somewhere new, like a friend's house."),
+    sortable: false,
+  });
+  return h`<div id="places">${banner}${msg}${verifyAll}${table}</div>`;
+}
+
+export function plansPage(vm: PlansVM, now: Date, flash: PlaceFlash = {}): string {
   const s = vm.status;
   const beeper = !s.beeper.configured ? StatusPill("off", "Not configured") : s.beeper.error ? StatusPill("error", "Not connected") : s.beeper.lastPollAt ? StatusPill("ok", "Connected") : StatusPill("info", "Starting");
   const strip = TileRow([
@@ -57,17 +93,7 @@ ${Section("Needs my attention", list(vm.needs, now, "Nothing needs a reply."), v
 ${Section("Clashes", list(vm.clashes, now, "No clashes with your calendar.", (p) => h`<p class="plan-why">Reply /addanyway ${p.id} on Telegram to add it anyway.</p>`), vm.clashes.length)}
 ${Section("Upcoming, I'm going", list(vm.upcoming, now, "Nothing coming up yet.", (p) => (p.onCalendar ? undefined : h`<p class="plan-why">Not on the calendar yet: needs confirmed, an exact day and time.</p>`)), vm.upcoming.length)}
 ${Section("Proposed / waiting", list(vm.proposed, now, "No open proposals."), vm.proposed.length)}
-${Section(
-  "Saved places",
-  DataTable({
-    caption: "Places Jarvis knows (the AI only sees the names). Reply to its question on Telegram to set an address.",
-    columns: [{ label: "Place" }, { label: "Address" }],
-    rows: vm.places.map((p) => ({ cells: [p.name, p.address ? h`<a href="${p.mapUrl}" target="_blank" rel="noreferrer noopener">${p.address}</a>` : h`<span class="muted">not given yet</span>`] })),
-    empty: EmptyState("No saved places yet", "Jarvis asks on Telegram when a plan is at somewhere new, like a friend's house."),
-    sortable: false,
-  }),
-  vm.places.length,
-)}
+${Section("Saved places", placesBlock(vm, flash), vm.places.length)}
 <details class="fold"><summary>Past, cancelled or declined (${vm.past.length})</summary><div class="stack">${list(vm.past, now, "Nothing here yet.")}</div></details>
 ${vm.showWould ? Section("Dry run: what Jarvis would do", would) : ""}`;
   return PageLayout({ title: "Plans", active: "plans", body, now });

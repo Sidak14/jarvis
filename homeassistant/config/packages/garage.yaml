@@ -99,16 +99,15 @@ rest_command:
     headers:
       Authorization: !secret jarvis_webhook_authorization
     content_type: "application/json"
-    payload: '{"minutes": 10}'
+    payload: '{"event": "opened"}'
     timeout: 20
 
 automation:
-  - id: garage_open_ten_minutes
-    alias: Garage left open for 10 minutes, tell Jarvis
+  - id: garage_opened_tell_jarvis
+    alias: Garage opened, tell Jarvis (Jarvis keeps the time)
     triggers:
       - trigger: state
         entity_id: sensor.garage_door_status
         to: "open"
-        for: "00:10:00"
     actions:
       - action: rest_command.jarvis_garage_open

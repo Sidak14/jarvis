@@ -107,7 +107,9 @@ export interface PlansVM {
   proposed: PlanVM[];
   past: PlanVM[];
   would: WouldVM[];
-  places: { name: string; address: string | null; mapUrl: string | null }[];
+  places: { id: number; name: string; address: string | null; typed: string | null; verified: boolean; mapUrl: string | null }[];
+  /** Is GOOGLE_MAPS_API_KEY set (so addresses can be looked up)? */
+  mapsConfigured: boolean;
   showWould: boolean;
 }
 
@@ -132,7 +134,8 @@ export function buildPlans(ctx: UiContext): PlansVM {
     proposed: vm(proposed),
     past: vm(past),
     would: would.map((w) => ({ at: new Date(w.created_at), plan: planCode(w.plan_id), action: w.kind.replace("would_", "would "), detail: w.detail ?? "" })),
-    places: listPlaces(db).map((p) => ({ name: p.name, address: p.address, mapUrl: mapsUrl(db, p.name) })),
+    places: listPlaces(db).map((p) => ({ id: p.id, name: p.name, address: p.address, typed: p.typed_address, verified: p.verified === 1, mapUrl: mapsUrl(db, p.name) })),
+    mapsConfigured: Boolean(config.GOOGLE_MAPS_API_KEY),
     showWould: ctx.flags.plansDryRun,
   };
 }

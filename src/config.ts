@@ -97,6 +97,8 @@ const schema = z.object({
 
   // Voice: phone calls with Jarvis through Vapi + Twilio (see README "Voice"). Everything here is optional until you set it up.
   VOICE_ENABLED: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
+  /** Google Maps (Geocoding API) key: finds the real address of a place I name. Without it addresses are saved as typed, unverified. */
+  GOOGLE_MAPS_API_KEY: z.string().min(10).optional(),
   VAPI_API_KEY: z.string().min(10).optional(),
   VAPI_PHONE_NUMBER_ID: z.string().min(10).optional(),
   /** Vapi sends this as "Authorization: Bearer <secret>" to /voice/*. At least 32 characters. */
@@ -163,6 +165,7 @@ export function redactedConfig(): Record<string, string | number | boolean | und
     VAPI_WEBHOOK_SECRET: config.VAPI_WEBHOOK_SECRET ? "***" : undefined,
     VAPI_CREDENTIAL_ID: config.VAPI_CREDENTIAL_ID ? "***" : undefined,
     OWNER_PHONE: config.OWNER_PHONE ? "***" : undefined,
+    GOOGLE_MAPS_API_KEY: config.GOOGLE_MAPS_API_KEY ? "***" : undefined,
     VOICE_OPEN_PHRASE: config.VOICE_OPEN_PHRASE ? "***" : undefined,
     DASHBOARD_EMAILS: config.DASHBOARD_EMAILS.length ? `${config.DASHBOARD_EMAILS.length} email(s)` : "none",
   };

@@ -278,6 +278,27 @@ and the LaunchAgent `~/Library/LaunchAgents/com.jarvis.beeper-server.plist` runs
 of RAM and starts when you log in (auto-login must stay on). To update it, replace the app folder and
 `launchctl unload` / `load` the agent. If it is down, plans-poll just logs it and tries again.
 
+## Settings (editable on the dashboard, no restart)
+
+The numbers that used to be written into the code (the garage-open alert time, the monthly AI and voice limits, how many plays
+make Spotify like a track, plan confidence limits, who opens or closes the garage...) are **settings**: `src/settings/defs.ts` lists
+each one with its page, label, limits and default. Every page of the dashboard has an **Edit settings** section at the bottom
+(AI spend on Overview, Spotify, Plans, Invoice emails, Calls, and a **Home Assistant** page for the garage, who triggers what, and the
+lights the phone assistant may switch). Saving changes the value within about 2 seconds; "reset to default" puts the code's value
+back. The **Jobs** page also edits every job's schedule (a cron expression) and reschedules it at once.
+
+- Values I save live in the `app_settings` table; no row means the default. A bad value (out of range, not a number) is refused with
+  the reason, and a saved value that has become invalid falls back to the default.
+- Code reads a setting where it is used: `settings.num("key")`, `.bool`, `.str` (before the database is bound, and in tests, that is
+  just the default). To add one: add it to `defs.ts`, read it, and it appears on its page.
+- The lights list refuses the Frontyard Top Lights circuit and duplicates, like `voice/entities.yaml` always did. Secrets, ports and
+  file paths stay in `.env`.
+- **Saved places** (Plans page): when you give an address Jarvis looks it up with the Google Maps Geocoding API (`GOOGLE_MAPS_API_KEY`
+  in `.env`; one key, Geocoding API enabled) and saves **Google's full address**, which is what the Plans page and the calendar event
+  show; what you typed is kept underneath. A place can be edited (name and address) or deleted. Without the key, or if Google can't
+  find it, the typed address is kept and marked "Not verified", and the page says Google Maps isn't configured.
+- Forms are same-site posts behind the same access as the pages.
+
 ## Dashboard (UI)
 
 Six pages behind Cloudflare Access, sharing one nav: **Overview** `/`, **Expenses** `/expenses`, **Plans** `/plans`,
@@ -375,10 +396,10 @@ phone <-> Twilio number <-> Vapi (speech-to-text, LLM, text-to-speech)
   door goes back to where it was, the note says it didn't go through and not to retry. (If the control URL is missing, the prompt
   has the assistant check `garage_status` before hanging up.)
 - **Jarvis phones me:** a Home Assistant automation (`homeassistant/config/packages/garage.yaml`) POSTs
-  `/webhook/ha/garage-open` when `sensor.garage_door_status` has been `open` for 10 minutes; a watchdog job (`voice-alerts`, every
+  `/webhook/ha/garage-open` the moment the door opens; Jarvis keeps the time itself (the setting `voice.garage_open_seconds`, 10 minutes by default) and checks again once the door has been open that long; a watchdog job (`voice-alerts`, every
   5 minutes) checks the garage itself in case that webhook is missed. One open `alert_episodes` row per kind: it ends when the
-  garage closes; calls at most every 30 minutes and 3 a day (Sydney); the garage alert is urgent so it may call at night
-  (non-urgent kinds are quiet 11pm to 7am); none at the monthly limit (Telegram only). The rules are one function (`decide` in
+  garage closes; calls at most every 30 minutes and 3 a day (Sydney, both settings); the garage alert is urgent so it may call at night
+  (non-urgent kinds are quiet 11pm to 7am, also settings); none at the monthly limit (Telegram only). The rules are one function (`decide` in
   `src/voice/alerts.ts`). The assistant stays silent until a person speaks, so a voicemail greeting is never played any details;
   voicemail detection hangs up without a message. If I don't answer, it goes to voicemail, is busy or fails, Telegram says so
   (including that the garage is still open).

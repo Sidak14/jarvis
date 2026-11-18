@@ -1,10 +1,11 @@
 import type Database from "better-sqlite3";
+import { config } from "../config";
 import { AiCapError, LlmError, type Llm } from "../ai/llm";
 import { LlmJsonError } from "../ai/json";
 import { updateSchema, type TelegramApi } from "./api";
 import { money } from "./format";
 import { runCommand } from "./commands";
-import { placeByQuestionMessage, saveAddress } from "../plans/places";
+import { placeByQuestionMessage, saveAddress, verifyPlace } from "../plans/places";
 import { insertManualExpense, LOG_USAGE, parseLog } from "./log";
 import type { Outbox } from "./outbox";
 import { applyReply, findExpenseByQuestionMessage, recategorise } from "./questions";
@@ -136,7 +137,17 @@ export async function handleUpdate(deps: BotDeps, raw: unknown): Promise<void> {
   const place = message.reply_to_message ? placeByQuestionMessage(db, message.reply_to_message.message_id) : undefined;
   if (place) {
     const saved = saveAddress(db, place.id, text);
-    notify(saved ? `Saved: ${saved.name} is at ${saved.address}. I'll use it on your calendar events.` : "I couldn't read an address in that. Reply to my question again with the address.");
+    if (!saved) {
+      notify("I couldn't read an address in that. Reply to my question again with the address.");
+      return;
+    }
+    // Look it up on Google Maps and keep Google's full address; if that can't be done, keep what was typed and say why.
+    const found = await verifyPlace(db, place.id, config.GOOGLE_MAPS_API_KEY);
+    notify(
+      found.ok
+        ? `Saved: ${saved.name} is at ${found.address} (found on Google Maps). I'll use it on your calendar events.`
+        : `Saved: ${saved.name} is at ${saved.address}, but it is not verified: ${found.message} You can fix or look it up again on the Plans page.`,
+    );
     return;
   }
   const expenseId = message.reply_to_message ? findExpenseByQuestionMessage(db, message.reply_to_message.message_id) : undefined;
