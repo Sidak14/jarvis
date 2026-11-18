@@ -3,7 +3,7 @@ import { beforeEach, describe, it } from "node:test";
 import Database from "better-sqlite3";
 import { createLocationTables } from "./schema";
 import { applyLocation, currentLocation, parseLocation } from "./store";
-import { openGarageOnArrival } from "./arrive";
+import { closeGarageAfterLeaving, openGarageOnArrival } from "./arrive";
 import { createLocationWebhook } from "./webhook";
 
 const T0 = new Date("2026-11-17T01:00:00Z");
@@ -92,5 +92,47 @@ describe("arriving home opens the garage", () => {
     const hook = createLocationWebhook({ db, person: "me", now: () => T0, onArriveHome: () => void n++ });
     for (const [place, event] of [["gym", "enter"], ["home", "leave"], ["home", "enter"]]) await hook({ body: { kind: "location", place, event }, rawText: "", log: () => {} });
     assert.equal(n, 1);
+  });
+});
+
+describe("leaving home closes a garage that was just opened", () => {
+  const fake = (state: string, ageMs: number | null, opener = true) => {
+    const pressed: string[] = [];
+    return { pressed, ha: { garage: async () => ({ state, opener }), garageStateAgeMs: async () => ageMs, pressGarage: async (a: string) => void pressed.push(a) } as never };
+  };
+  const go = (h: ReturnType<typeof fake>, stillAway = true) => closeGarageAfterLeaving(h.ha, { stillAway: () => stillAway, sleep: async () => {} });
+
+  it("closes it when it is open and was opened under 3 minutes ago", async () => {
+    const h = fake("open", 90_000);
+    assert.equal(await go(h), "closed");
+    assert.deepEqual(h.pressed, ["close"]);
+  });
+  it("leaves it alone when it has been open longer, is closed, is moving, or cannot be read", async () => {
+    const cases: [string, number | null, boolean, string][] = [
+      ["open", 4 * 60_000, true, "opened a while ago"],
+      ["closed", 5000, true, "not open"],
+      ["closing", 5000, true, "not open"],
+      ["open", null, true, "unreadable"],
+      ["open", 5000, false, "unreadable"],
+      ["unavailable", 5000, true, "unreadable"],
+    ];
+    for (const [state, age, opener, result] of cases) {
+      const h = fake(state, age, opener);
+      assert.equal(await go(h), result, `${state} ${age}`);
+      assert.deepEqual(h.pressed, []);
+    }
+  });
+  it("does nothing if they are back home after the wait", async () => {
+    const h = fake("open", 1000);
+    assert.equal(await go(h, false), "back home");
+    assert.deepEqual(h.pressed, []);
+  });
+  it("only 'leave home' triggers it", async () => {
+    let left = 0;
+    const db = new Database(":memory:");
+    createLocationTables(db);
+    const hook = createLocationWebhook({ db, person: "mom", now: () => T0, onLeaveHome: () => void left++ });
+    for (const [place, event] of [["gym", "leave"], ["home", "enter"], ["home", "leave"]]) await hook({ body: { kind: "location", place, event }, rawText: "", log: () => {} });
+    assert.equal(left, 1);
   });
 });

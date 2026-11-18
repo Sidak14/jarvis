@@ -235,6 +235,9 @@ function fakeHa() {
     async garage() {
       return { state: garage, opener: true } as Garage;
     },
+    async garageStateAgeMs() {
+      return 1000;
+    },
     async pressGarage(action) {
       pressed.push(action);
     },
@@ -438,7 +441,7 @@ describe("home screen routes", () => {
     assert.equal((await post(noHa.app, "/api/garage", { action: "open" })).status, 503);
 
     const down = async () => { throw new Error("down"); };
-    const broken = make({ ha: { states: down, setSwitch: down, garage: down, pressGarage: down, tv: down, tvKey: down, tvSource: down, snapshot: down } });
+    const broken = make({ ha: { states: down, setSwitch: down, garage: down, garageStateAgeMs: down, pressGarage: down, tv: down, tvKey: down, tvSource: down, snapshot: down } });
     const body = (await (await broken.app.request("/api/state", { headers: IN })).json()) as { error: string };
     assert.match(body.error, /isn't answering/);
     assert.equal((await post(broken.app, "/api/lights/chandelier", { on: true })).status, 502);

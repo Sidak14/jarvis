@@ -1,4 +1,4 @@
-import { GARAGE_COVER, GARAGE_OPENER, GARAGE_STATUS, garageState, type Garage, type GarageAction } from "./garage";
+import { GARAGE_COVER, GARAGE_OPENER, GARAGE_SENSOR, GARAGE_STATUS, garageState, type Garage, type GarageAction } from "./garage";
 import { NEVER_SWITCH } from "./lights";
 import { TV_KEYS, TV_PLAYER, TV_REMOTE, type Tv, type TvKey } from "./tv";
 
@@ -12,6 +12,8 @@ export interface HaClient {
   states(entities: string[]): Promise<Record<string, LightState>>;
   setSwitch(entity: string, on: boolean): Promise<void>;
   garage(): Promise<Garage>;
+  /** How long the door has been in its current state (open or closed), from the tilt sensor; null if unknown. */
+  garageStateAgeMs(): Promise<number | null>;
   /** Press Open or Close. Home Assistant ignores it if the door is not in the right state or is already moving. */
   pressGarage(action: GarageAction): Promise<void>;
   tv(): Promise<Tv>;
@@ -62,6 +64,13 @@ export function haClient(baseUrl: string, token: string, fetchFn: FetchFn = fetc
       };
       const [status, opener] = await Promise.all([read(GARAGE_STATUS), read(GARAGE_OPENER)]);
       return { state: garageState(status), opener: opener === "on" };
+    },
+
+    async garageStateAgeMs() {
+      const res = await fetchFn(`${base}/api/states/${GARAGE_SENSOR}`, { headers, signal: AbortSignal.timeout(4000) });
+      if (!res.ok) throw new Error(`Home Assistant answered ${res.status}`);
+      const changed = Date.parse(((await res.json()) as { last_changed?: string }).last_changed ?? "");
+      return Number.isFinite(changed) ? Math.max(0, Date.now() - changed) : null;
     },
 
     async pressGarage(action) {

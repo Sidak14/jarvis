@@ -3,7 +3,7 @@ import type { WebhookHandler } from "../webhooks";
 import { applyLocation, parseLocation, type PersonKey } from "./store";
 
 /** POST /webhook/location/<me|mom> with {"kind": "location", "place": "home|work|gym", "event": "enter|leave"}. */
-export function createLocationWebhook(opts: { db: Database.Database; person: PersonKey; now?: () => Date; onArriveHome?: () => void }): WebhookHandler {
+export function createLocationWebhook(opts: { db: Database.Database; person: PersonKey; now?: () => Date; onArriveHome?: () => void; onLeaveHome?: () => void }): WebhookHandler {
   return ({ body, rawText, log }) => {
     const report = parseLocation(body);
     if (!report) {
@@ -12,7 +12,7 @@ export function createLocationWebhook(opts: { db: Database.Database; person: Per
     }
     const where = applyLocation(opts.db, opts.person, report, (opts.now ?? (() => new Date()))());
     log(`${opts.person} ${report.event} ${report.place}: now ${where}`);
-    if (report.place === "home" && report.event === "enter") opts.onArriveHome?.();
+    if (report.place === "home") (report.event === "enter" ? opts.onArriveHome : opts.onLeaveHome)?.();
     return { status: 202, body: { ok: true, location: where } };
   };
 }
