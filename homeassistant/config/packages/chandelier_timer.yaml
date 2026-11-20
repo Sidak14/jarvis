@@ -1,0 +1,24 @@
+# Chandelier: on 30 minutes before sunset, off at 10pm, every day.
+# To change it, edit the offset or the time below, run ./ha.sh check-config, then ./ha.sh reload automation.
+
+automation:
+  - id: chandelier_on_before_sunset
+    alias: Chandelier on 30 minutes before sunset
+    triggers:
+      - trigger: sun
+        event: sunset
+        offset: "-00:30:00"
+    actions:
+      - action: switch.turn_on
+        target:
+          entity_id: switch.shellyswitch25_c8c9a375a239_channel_1
+
+  - id: chandelier_off_at_ten
+    alias: Chandelier off at 10pm
+    triggers:
+      - trigger: time
+        at: "22:00:00"
+    actions:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.shellyswitch25_c8c9a375a239_channel_1
